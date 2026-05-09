@@ -4,189 +4,261 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>IMDB Movie Stats</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
     :root {
-      --gold: #f5c518;
-      --gold-dim: #c9a227;
-      --bg: #0f0f0f;
-      --bg2: #1a1a1a;
-      --bg3: #242424;
-      --bg4: #2e2e2e;
-      --border: #333;
-      --text: #e8e8e8;
-      --text-dim: #999;
-      --text-muted: #666;
-      --green: #4caf50;
-      --red: #ef5350;
-      --blue: #42a5f5;
-      --purple: #ab47bc;
+      --gold:        #f5c518;
+      --gold-glow:   rgba(245,197,24,0.25);
+      --gold-subtle: rgba(245,197,24,0.08);
+      --bg:          #080808;
+      --bg2:         #111111;
+      --bg3:         #181818;
+      --bg4:         #222222;
+      --bg5:         #2a2a2a;
+      --border:      rgba(255,255,255,0.07);
+      --border-gold: rgba(245,197,24,0.3);
+      --text:        #f0f0f0;
+      --text-dim:    #888;
+      --text-muted:  #444;
+      --green:       #4ade80;
+      --red:         #f87171;
+      --blue:        #60a5fa;
+      --purple:      #c084fc;
+      --radius:      14px;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
 
     body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Header ── */
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bg5); border-radius: 99px; }
+
+    /* ══════════════════════════════
+       HEADER
+    ══════════════════════════════ */
     header {
-      background: var(--bg2);
-      border-bottom: 2px solid var(--gold);
-      padding: 0 2rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      height: 60px;
       position: sticky;
       top: 0;
-      z-index: 100;
+      z-index: 200;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      padding: 0 1.75rem;
+      gap: 1rem;
+      background: rgba(8,8,8,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
     }
 
     .logo {
       background: var(--gold);
       color: #000;
       font-weight: 900;
-      font-size: 1.1rem;
-      padding: 3px 8px;
-      border-radius: 4px;
-      letter-spacing: 1px;
+      font-size: 0.9rem;
+      padding: 3px 7px;
+      border-radius: 5px;
+      letter-spacing: 1.5px;
+      flex-shrink: 0;
     }
 
     header h1 {
-      font-size: 1.2rem;
+      font-size: 0.95rem;
       font-weight: 600;
       color: var(--text);
+      letter-spacing: -0.01em;
     }
 
-    header .subtitle {
-      font-size: 0.8rem;
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    #file-counter {
+      font-size: 0.78rem;
       color: var(--text-dim);
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 3px 10px;
+      display: none;
     }
 
-    /* ── Upload Area ── */
+    .btn-reset {
+      display: none;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .btn-reset:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    /* ══════════════════════════════
+       UPLOAD SCREEN
+    ══════════════════════════════ */
     #upload-section {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: calc(100vh - 60px);
+      min-height: calc(100vh - 56px);
       padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Radial glow bg */
+    #upload-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 50% 60%, rgba(245,197,24,0.06) 0%, transparent 70%);
+      pointer-events: none;
     }
 
     .upload-card {
+      position: relative;
       background: var(--bg2);
-      border: 2px dashed var(--border);
-      border-radius: 16px;
-      padding: 4rem 3rem;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 3.5rem 3rem;
       text-align: center;
-      max-width: 540px;
+      max-width: 460px;
       width: 100%;
-      transition: border-color 0.2s, background 0.2s;
-      cursor: pointer;
+      transition: border-color 0.25s, box-shadow 0.25s;
     }
 
-    .upload-card:hover,
+    .upload-card:hover {
+      border-color: var(--border-gold);
+      box-shadow: 0 0 60px rgba(245,197,24,0.07);
+    }
+
     .upload-card.drag-over {
       border-color: var(--gold);
-      background: rgba(245, 197, 24, 0.04);
+      box-shadow: 0 0 0 4px var(--gold-glow), 0 0 60px rgba(245,197,24,0.1);
     }
 
-    .upload-icon {
-      font-size: 4rem;
-      margin-bottom: 1.5rem;
+    .upload-icon-wrap {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 2rem;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      transition: transform 0.2s;
+    }
+
+    .upload-card:hover .upload-icon-wrap {
+      transform: scale(1.05);
     }
 
     .upload-card h2 {
-      font-size: 1.5rem;
-      margin-bottom: 0.75rem;
-      color: var(--gold);
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      margin-bottom: 0.6rem;
     }
 
     .upload-card p {
       color: var(--text-dim);
-      font-size: 0.95rem;
-      line-height: 1.6;
-      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+      line-height: 1.65;
+      margin-bottom: 2rem;
     }
-
-    .upload-card .hint {
-      background: var(--bg3);
-      border-radius: 8px;
-      padding: 1rem;
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      text-align: left;
-      margin-bottom: 1.5rem;
-    }
-
-    .upload-card .hint code {
-      color: var(--gold);
-      font-family: monospace;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 2rem;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      font-size: 1rem;
-      font-weight: 600;
-      transition: opacity 0.2s, transform 0.1s;
-    }
-
-    .btn:active { transform: scale(0.97); }
-
-    .btn-gold {
-      background: var(--gold);
-      color: #000;
-    }
-
-    .btn-gold:hover { opacity: 0.9; }
-
-    .btn-outline {
-      background: transparent;
-      color: var(--gold);
-      border: 1px solid var(--gold);
-    }
-
-    .btn-outline:hover { background: rgba(245,197,24,0.08); }
 
     #file-input { display: none; }
 
-    /* ── Dashboard ── */
-    #dashboard { display: none; padding: 1.5rem 2rem 3rem; }
-
-    .dashboard-header {
-      display: flex;
+    .btn-upload {
+      display: inline-flex;
       align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.75rem;
+      background: var(--gold);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.9rem;
+      border-radius: 99px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.01em;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn-upload:hover { opacity: 0.9; }
+    .btn-upload:active { transform: scale(0.97); }
+
+    .upload-sub {
+      margin-top: 1.25rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* ══════════════════════════════
+       DASHBOARD
+    ══════════════════════════════ */
+    #dashboard { display: none; padding: 1.75rem 1.75rem 4rem; }
+
+    .dash-header {
+      display: flex;
+      align-items: baseline;
       justify-content: space-between;
       margin-bottom: 1.5rem;
       flex-wrap: wrap;
-      gap: 1rem;
+      gap: 0.5rem;
     }
 
-    .dashboard-header h2 {
-      font-size: 1.1rem;
-      color: var(--text-dim);
+    .dash-header-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: var(--text);
     }
 
-    .dashboard-header h2 span {
-      color: var(--gold);
-      font-weight: 700;
+    .dash-header-title span { color: var(--gold); }
+
+    .dash-date {
+      font-size: 0.78rem;
+      color: var(--text-muted);
     }
 
-    /* ── Stat Cards ── */
+    /* ── KPI Cards ── */
     .cards {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
@@ -194,549 +266,528 @@
     .card {
       background: var(--bg2);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
+      border-radius: var(--radius);
+      padding: 1.25rem 1.35rem 1.1rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--card-accent, var(--gold));
+      opacity: 0.7;
+    }
+
+    .card:hover {
+      border-color: rgba(255,255,255,0.12);
+      transform: translateY(-1px);
+    }
+
+    .card-icon {
+      font-size: 1.1rem;
+      margin-bottom: 0.75rem;
+      display: block;
     }
 
     .card-label {
-      font-size: 0.75rem;
-      color: var(--text-dim);
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 0.5rem;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.35rem;
     }
 
     .card-value {
-      font-size: 2rem;
+      font-size: 1.9rem;
       font-weight: 800;
-      color: var(--gold);
+      color: var(--text);
+      letter-spacing: -0.04em;
       line-height: 1;
     }
 
     .card-sub {
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       color: var(--text-muted);
-      margin-top: 0.4rem;
+      margin-top: 0.35rem;
     }
 
-    /* ── Charts Grid ── */
+    /* ── Chart Grid ── */
     .charts-grid {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
-      gap: 1.25rem;
-    }
-
-    .chart-box {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.25rem;
-      position: relative;
+      gap: 1rem;
     }
 
     .col-12 { grid-column: span 12; }
     .col-8  { grid-column: span 8; }
+    .col-7  { grid-column: span 7; }
     .col-6  { grid-column: span 6; }
     .col-5  { grid-column: span 5; }
     .col-4  { grid-column: span 4; }
     .col-3  { grid-column: span 3; }
 
     @media (max-width: 1100px) {
-      .col-8, .col-5 { grid-column: span 12; }
+      .col-8, .col-7, .col-5 { grid-column: span 12; }
       .col-4, .col-3 { grid-column: span 6; }
     }
-
-    @media (max-width: 700px) {
-      #dashboard { padding: 1rem; }
-      .charts-grid { gap: 1rem; }
+    @media (max-width: 680px) {
+      #dashboard { padding: 1rem 1rem 3rem; }
       .col-6, .col-4, .col-3 { grid-column: span 12; }
     }
 
-    .chart-box h3 {
-      font-size: 0.85rem;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      margin-bottom: 1rem;
+    .chart-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.35rem 1.4rem 1.25rem;
+      position: relative;
+    }
+
+    .chart-title {
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      margin-bottom: 1.1rem;
     }
 
-    .chart-box h3 .icon { font-size: 1rem; }
+    .chart-title-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: var(--title-icon-bg, rgba(245,197,24,0.1));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    .chart-title h3 {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
 
     .chart-wrap {
       position: relative;
       width: 100%;
     }
 
-    /* ── Top Lists ── */
+    /* ── Top Director List ── */
     .top-list {
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
 
     .top-list li {
-      display: flex;
+      display: grid;
+      grid-template-columns: 22px 1fr auto auto;
       align-items: center;
-      gap: 0.75rem;
-      font-size: 0.85rem;
-      padding: 0.5rem 0.75rem;
+      gap: 0.6rem;
+      padding: 0.55rem 0.75rem;
       background: var(--bg3);
-      border-radius: 8px;
+      border-radius: 9px;
+      font-size: 0.82rem;
+      transition: background 0.15s;
     }
 
-    .top-list li .rank {
+    .top-list li:hover { background: var(--bg4); }
+
+    .top-list .rank {
+      font-size: 0.7rem;
+      font-weight: 700;
       color: var(--text-muted);
-      font-size: 0.75rem;
-      width: 20px;
-      flex-shrink: 0;
+      text-align: center;
     }
 
-    .top-list li .name {
-      flex: 1;
+    .top-list .name {
       color: var(--text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      font-weight: 500;
     }
 
-    .top-list li .count {
-      color: var(--gold);
-      font-weight: 700;
-      font-size: 0.85rem;
-      flex-shrink: 0;
+    .top-list .count {
+      font-size: 0.78rem;
+      color: var(--text-dim);
     }
 
-    .top-list li .bar-bg {
-      height: 4px;
-      background: var(--bg4);
-      border-radius: 2px;
-      flex: 1;
-      max-width: 80px;
-      overflow: hidden;
-    }
-
-    .top-list li .bar-fill {
-      height: 100%;
-      background: var(--gold);
-      border-radius: 2px;
-      transition: width 0.6s ease;
-    }
-
-    /* ── Decade / Type breakdown ── */
-    .breakdown-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
+    /* ── Breakdown bars ── */
+    .breakdown-list { display: flex; flex-direction: column; gap: 0.55rem; }
 
     .breakdown-item {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      font-size: 0.83rem;
+      gap: 0.65rem;
+      font-size: 0.8rem;
     }
 
-    .breakdown-item .b-label {
+    .b-label {
       color: var(--text-dim);
-      width: 55px;
+      width: 52px;
       flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
     }
 
-    .breakdown-item .b-bar-bg {
+    .b-bar-bg {
       flex: 1;
-      height: 8px;
+      height: 6px;
       background: var(--bg4);
-      border-radius: 4px;
+      border-radius: 99px;
       overflow: hidden;
     }
 
-    .breakdown-item .b-bar-fill {
+    .b-bar-fill {
       height: 100%;
-      border-radius: 4px;
-      transition: width 0.6s ease;
+      border-radius: 99px;
+      transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
     }
 
-    .breakdown-item .b-count {
+    .b-count {
       color: var(--text-muted);
-      font-size: 0.78rem;
-      width: 35px;
+      font-size: 0.72rem;
+      width: 30px;
       text-align: right;
       flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
     }
 
-    /* ── Agreement/Disagreement table ── */
+    /* ── Tables ── */
     .movie-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
     }
 
     .movie-table th {
       text-align: left;
       color: var(--text-muted);
-      font-weight: 500;
-      padding: 0 0.5rem 0.6rem;
+      font-weight: 600;
+      font-size: 0.67rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0 0.5rem 0.65rem;
       border-bottom: 1px solid var(--border);
-      white-space: nowrap;
     }
 
     .movie-table td {
       padding: 0.45rem 0.5rem;
-      border-bottom: 1px solid var(--bg3);
+      border-bottom: 1px solid rgba(255,255,255,0.03);
       color: var(--text);
       vertical-align: middle;
     }
 
     .movie-table tr:last-child td { border-bottom: none; }
 
-    .movie-table .title-cell {
-      max-width: 160px;
+    .movie-table tr:hover td { background: var(--bg3); }
+
+    .title-cell {
+      max-width: 150px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      font-weight: 500;
     }
 
+    /* ── Badges ── */
     .badge {
       display: inline-block;
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
     }
 
-    .badge-green { background: rgba(76,175,80,0.2); color: var(--green); }
-    .badge-red   { background: rgba(239,83,80,0.2); color: var(--red); }
-    .badge-gold  { background: rgba(245,197,24,0.15); color: var(--gold); }
-    .badge-blue  { background: rgba(66,165,245,0.2); color: var(--blue); }
+    .badge-green  { background: rgba(74,222,128,0.12); color: var(--green); }
+    .badge-red    { background: rgba(248,113,113,0.12); color: var(--red); }
+    .badge-gold   { background: rgba(245,197,24,0.12); color: var(--gold); }
+    .badge-blue   { background: rgba(96,165,250,0.12); color: var(--blue); }
+    .badge-purple { background: rgba(192,132,252,0.12); color: var(--purple); }
 
     /* ── Heatmap ── */
-    .heatmap-wrap {
-      overflow-x: auto;
-    }
+    .heatmap-wrap { overflow-x: auto; padding-bottom: 0.25rem; }
 
-    .heatmap {
+    .heatmap-legend {
       display: flex;
-      gap: 3px;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.85rem;
+      font-size: 0.7rem;
+      color: var(--text-muted);
     }
 
-    .heatmap-col {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
+    .legend-cells { display: flex; gap: 3px; }
 
-    .heatmap-cell {
-      width: 14px;
-      height: 14px;
+    .legend-cell {
+      width: 11px;
+      height: 11px;
       border-radius: 2px;
-      background: var(--bg4);
     }
 
-    .heatmap-month-labels {
-      display: flex;
-      gap: 3px;
-      margin-bottom: 4px;
-      padding-left: 20px;
-    }
-
-    .heatmap-day-labels {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      margin-right: 4px;
-    }
-
-    .heatmap-day-label {
-      height: 14px;
-      font-size: 0.6rem;
+    /* ── Section dividers ── */
+    .section-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
       color: var(--text-muted);
-      display: flex;
-      align-items: center;
+      margin: 1.5rem 0 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
     }
 
-    /* ── Stars ── */
-    .stars {
-      color: var(--gold);
-      font-size: 0.85rem;
+    /* ── Fade-in animation ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg2); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-    /* ── Chart.js tooltip override ── */
-    .chartjs-tooltip {
-      background: var(--bg3) !important;
-    }
-
-    /* ── Loading ── */
-    .loading {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 120px;
-      color: var(--text-muted);
-      font-size: 0.9rem;
+    .card, .chart-box {
+      animation: fadeUp 0.4s ease both;
     }
   </style>
 </head>
 <body>
 
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
 <header>
   <div class="logo">IMDb</div>
-  <div>
-    <h1>Movie Stats Dashboard</h1>
-    <div class="subtitle">Deine persönliche Filmstatistik</div>
+  <h1>Movie Stats</h1>
+  <div class="header-right">
+    <span id="file-counter"></span>
+    <button class="btn-reset" id="reset-btn">↩ Neue Datei</button>
   </div>
-  <div style="flex:1"></div>
-  <button class="btn btn-outline" id="reset-btn" style="display:none;font-size:0.85rem;padding:0.5rem 1rem;">
-    ↩ Neue CSV laden
-  </button>
 </header>
 
-<!-- Upload -->
+<!-- ═══════════════════════ UPLOAD ═══════════════════════ -->
 <section id="upload-section">
   <div class="upload-card" id="drop-zone">
-    <div class="upload-icon">🎬</div>
-    <h2>IMDB Ratings hochladen</h2>
-    <p>Lade deine IMDB-Bewertungsliste als CSV-Datei hoch und sieh dir deine persönlichen Filmstatistiken an.</p>
-    <div class="hint">
-      <strong>So exportierst du deine Bewertungen:</strong><br><br>
-      1. Gehe zu <code>imdb.com</code> → Dein Konto<br>
-      2. Klicke auf <code>Deine Bewertungen</code><br>
-      3. Klicke auf das Drei-Punkte-Menü (···) oben rechts<br>
-      4. Wähle <code>Exportieren</code> → CSV herunterladen
-    </div>
-    <label for="file-input" class="btn btn-gold" style="cursor:pointer;">
-      📂 CSV-Datei auswählen
+    <div class="upload-icon-wrap">🎬</div>
+    <h2>Deine IMDB-Stats</h2>
+    <p>Lade deine exportierte IMDB-Bewertungsliste als CSV hoch und erhalte detaillierte Statistiken über deine Filmgeschmack.</p>
+    <label for="file-input" class="btn-upload">
+      CSV hochladen
     </label>
     <input type="file" id="file-input" accept=".csv" />
-    <div style="margin-top:1rem;font-size:0.78rem;color:var(--text-muted)">
-      Oder Datei per Drag & Drop hier ablegen
-    </div>
+    <div class="upload-sub">Oder per Drag &amp; Drop ablegen</div>
   </div>
 </section>
 
-<!-- Dashboard -->
+<!-- ═══════════════════════ DASHBOARD ═══════════════════════ -->
 <section id="dashboard">
 
-  <div class="dashboard-header">
-    <div>
-      <h2>Statistiken für <span id="username-label">deine Sammlung</span></h2>
-    </div>
-    <div style="font-size:0.82rem;color:var(--text-muted)" id="date-range-label"></div>
+  <div class="dash-header">
+    <div class="dash-header-title">Deine <span>Filmstatistik</span></div>
+    <div class="dash-date" id="date-range-label"></div>
   </div>
 
-  <!-- KPI Cards -->
+  <!-- KPI Row -->
   <div class="cards">
-    <div class="card">
+    <div class="card" style="--card-accent:#f5c518">
+      <span class="card-icon">🎬</span>
       <div class="card-label">Bewertet</div>
       <div class="card-value" id="stat-total">–</div>
       <div class="card-sub">Titel insgesamt</div>
     </div>
-    <div class="card">
-      <div class="card-label">Ø Deine Bewertung</div>
+    <div class="card" style="--card-accent:#f5c518">
+      <span class="card-icon">⭐</span>
+      <div class="card-label">Ø Deine Wertung</div>
       <div class="card-value" id="stat-avg-mine">–</div>
       <div class="card-sub">von 10</div>
     </div>
-    <div class="card">
-      <div class="card-label">Ø IMDB Bewertung</div>
+    <div class="card" style="--card-accent:#60a5fa">
+      <span class="card-icon">📊</span>
+      <div class="card-label">Ø IMDB Wertung</div>
       <div class="card-value" id="stat-avg-imdb">–</div>
-      <div class="card-sub">der bewerteten Titel</div>
+      <div class="card-sub">der gesehenen Titel</div>
     </div>
-    <div class="card">
+    <div class="card" style="--card-accent:#c084fc">
+      <span class="card-icon">⏱️</span>
       <div class="card-label">Gesamtlaufzeit</div>
       <div class="card-value" id="stat-runtime">–</div>
-      <div class="card-sub" id="stat-runtime-sub">Stunden</div>
+      <div class="card-sub" id="stat-runtime-sub"></div>
     </div>
-    <div class="card">
+    <div class="card" style="--card-accent:#4ade80">
+      <span class="card-icon">🎭</span>
       <div class="card-label">Genres entdeckt</div>
       <div class="card-value" id="stat-genres">–</div>
       <div class="card-sub">einzigartige Genres</div>
     </div>
-    <div class="card">
+    <div class="card" style="--card-accent:#fb923c">
+      <span class="card-icon">🎥</span>
       <div class="card-label">Regisseure</div>
       <div class="card-value" id="stat-directors">–</div>
-      <div class="card-sub">einzigartige Regisseure</div>
+      <div class="card-sub">einzigartige</div>
     </div>
-    <div class="card">
-      <div class="card-label">Lieblingsbewertung</div>
+    <div class="card" style="--card-accent:#f5c518">
+      <span class="card-icon">❤️</span>
+      <div class="card-label">Lieblingsrating</div>
       <div class="card-value" id="stat-fav-rating">–</div>
       <div class="card-sub">häufigste Bewertung</div>
     </div>
-    <div class="card">
+    <div class="card" style="--card-accent:#f87171">
+      <span class="card-icon">🗓️</span>
       <div class="card-label">Aktivstes Jahr</div>
       <div class="card-value" id="stat-busiest-year">–</div>
-      <div class="card-sub" id="stat-busiest-year-sub">Bewertungen</div>
+      <div class="card-sub" id="stat-busiest-year-sub"></div>
     </div>
   </div>
 
   <!-- Charts -->
   <div class="charts-grid">
 
-    <!-- 1: Deine Bewertungsverteilung -->
     <div class="chart-box col-6">
-      <h3><span class="icon">⭐</span> Deine Bewertungsverteilung</h3>
-      <div class="chart-wrap" style="height:220px">
-        <canvas id="chart-my-ratings"></canvas>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(245,197,24,0.12)">⭐</div>
+        <h3>Deine Bewertungsverteilung</h3>
       </div>
+      <div class="chart-wrap" style="height:210px"><canvas id="chart-my-ratings"></canvas></div>
     </div>
 
-    <!-- 2: IMDB Bewertungsverteilung -->
     <div class="chart-box col-6">
-      <h3><span class="icon">📊</span> IMDB Bewertungsverteilung</h3>
-      <div class="chart-wrap" style="height:220px">
-        <canvas id="chart-imdb-ratings"></canvas>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(96,165,250,0.12)">📊</div>
+        <h3>IMDB Bewertungsverteilung</h3>
       </div>
+      <div class="chart-wrap" style="height:210px"><canvas id="chart-imdb-ratings"></canvas></div>
     </div>
 
-    <!-- 3: Zeitlicher Verlauf -->
     <div class="chart-box col-8">
-      <h3><span class="icon">📅</span> Bewertungen über die Zeit</h3>
-      <div class="chart-wrap" style="height:220px">
-        <canvas id="chart-timeline"></canvas>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(74,222,128,0.1)">📈</div>
+        <h3>Bewertungen über die Zeit</h3>
       </div>
+      <div class="chart-wrap" style="height:210px"><canvas id="chart-timeline"></canvas></div>
     </div>
 
-    <!-- 4: Titeltypen -->
     <div class="chart-box col-4">
-      <h3><span class="icon">🎭</span> Titeltypen</h3>
-      <div class="chart-wrap" style="height:220px">
-        <canvas id="chart-types"></canvas>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(192,132,252,0.12)">🎭</div>
+        <h3>Titeltypen</h3>
       </div>
+      <div class="chart-wrap" style="height:210px"><canvas id="chart-types"></canvas></div>
     </div>
 
-    <!-- 5: Top Genres -->
     <div class="chart-box col-6">
-      <h3><span class="icon">🎪</span> Top Genres (Anzahl)</h3>
-      <div class="chart-wrap" style="height:260px">
-        <canvas id="chart-genres"></canvas>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(251,146,60,0.1)">🎪</div>
+        <h3>Top Genres · Anzahl</h3>
       </div>
+      <div class="chart-wrap" style="height:260px"><canvas id="chart-genres"></canvas></div>
     </div>
 
-    <!-- 6: Genre Ø Bewertung -->
     <div class="chart-box col-6">
-      <h3><span class="icon">❤️</span> Ø Deine Bewertung je Genre</h3>
-      <div class="chart-wrap" style="height:260px">
-        <canvas id="chart-genre-ratings"></canvas>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(245,197,24,0.1)">❤️</div>
+        <h3>Ø Deine Wertung je Genre</h3>
       </div>
+      <div class="chart-wrap" style="height:260px"><canvas id="chart-genre-ratings"></canvas></div>
     </div>
 
-    <!-- 7: Scatter deine vs IMDB -->
-    <div class="chart-box col-6">
-      <h3><span class="icon">🔍</span> Deine Bewertung vs. IMDB</h3>
-      <div class="chart-wrap" style="height:260px">
-        <canvas id="chart-scatter"></canvas>
+    <div class="chart-box col-7">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(96,165,250,0.1)">🔍</div>
+        <h3>Du vs. IMDB · Scatter</h3>
       </div>
+      <div class="chart-wrap" style="height:250px"><canvas id="chart-scatter"></canvas></div>
     </div>
 
-    <!-- 8: Jahrzehnte -->
-    <div class="chart-box col-3">
-      <h3><span class="icon">🕰️</span> Erscheinungsjahrzehnt</h3>
-      <div id="decades-list" class="breakdown-list" style="margin-top:0.5rem"></div>
-    </div>
-
-    <!-- 9: Laufzeit Histogramm -->
-    <div class="chart-box col-3">
-      <h3><span class="icon">⏱️</span> Laufzeit (Minuten)</h3>
-      <div class="chart-wrap" style="height:220px">
-        <canvas id="chart-runtime"></canvas>
+    <div class="chart-box col-5">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(251,146,60,0.1)">⏱️</div>
+        <h3>Laufzeit · Verteilung</h3>
       </div>
+      <div class="chart-wrap" style="height:250px"><canvas id="chart-runtime"></canvas></div>
     </div>
 
-    <!-- 10: Top Regisseure -->
     <div class="chart-box col-4">
-      <h3><span class="icon">🎬</span> Top 10 Regisseure</h3>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(245,197,24,0.1)">🎬</div>
+        <h3>Top Regisseure</h3>
+      </div>
       <ul class="top-list" id="top-directors"></ul>
     </div>
 
-    <!-- 11: Höchste Differenz (du > IMDB) -->
     <div class="chart-box col-4">
-      <h3><span class="icon">👍</span> Dein Geheimtipp (du &gt; IMDB)</h3>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(74,222,128,0.1)">👍</div>
+        <h3>Dein Geheimtipp · Du &gt; IMDB</h3>
+      </div>
       <table class="movie-table" id="table-overrated">
-        <thead>
-          <tr>
-            <th>Film</th>
-            <th>Du</th>
-            <th>IMDB</th>
-            <th>Δ</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Titel</th><th>Du</th><th>IMDB</th><th>Δ</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
 
-    <!-- 12: Niedrigste Differenz (du < IMDB) -->
     <div class="chart-box col-4">
-      <h3><span class="icon">👎</span> Überbewertet? (IMDB &gt; du)</h3>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(248,113,113,0.1)">👎</div>
+        <h3>Überbewertet? · IMDB &gt; Du</h3>
+      </div>
       <table class="movie-table" id="table-underrated">
-        <thead>
-          <tr>
-            <th>Film</th>
-            <th>Du</th>
-            <th>IMDB</th>
-            <th>Δ</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Titel</th><th>Du</th><th>IMDB</th><th>Δ</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
 
-    <!-- 13: Aktivitäts-Heatmap -->
+    <div class="chart-box col-4">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(245,197,24,0.1)">🕰️</div>
+        <h3>Erscheinungsjahrzehnt</h3>
+      </div>
+      <div id="decades-list" class="breakdown-list" style="margin-top:0.25rem"></div>
+    </div>
+
     <div class="chart-box col-12">
-      <h3><span class="icon">🗓️</span> Bewertungsaktivität (letztes Jahr)</h3>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(74,222,128,0.1)">🗓️</div>
+        <h3>Bewertungsaktivität · Letztes Jahr</h3>
+      </div>
       <div class="heatmap-wrap">
         <div id="heatmap-container"></div>
       </div>
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.75rem;font-size:0.75rem;color:var(--text-muted)">
+      <div class="heatmap-legend">
         Weniger
-        <div style="display:flex;gap:3px">
-          <div style="width:12px;height:12px;border-radius:2px;background:var(--bg4)"></div>
-          <div style="width:12px;height:12px;border-radius:2px;background:#1a3a1a"></div>
-          <div style="width:12px;height:12px;border-radius:2px;background:#2d6a2d"></div>
-          <div style="width:12px;height:12px;border-radius:2px;background:#4caf50"></div>
-          <div style="width:12px;height:12px;border-radius:2px;background:#81c784"></div>
+        <div class="legend-cells">
+          <div class="legend-cell" style="background:#1c1c1c"></div>
+          <div class="legend-cell" style="background:#1a3a1a"></div>
+          <div class="legend-cell" style="background:#166534"></div>
+          <div class="legend-cell" style="background:#16a34a"></div>
+          <div class="legend-cell" style="background:#4ade80"></div>
         </div>
         Mehr
       </div>
     </div>
 
-    <!-- 14: Top bewertete Filme -->
     <div class="chart-box col-6">
-      <h3><span class="icon">🏆</span> Deine Top 10 Bewertungen</h3>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(245,197,24,0.12)">🏆</div>
+        <h3>Deine Top 10</h3>
+      </div>
       <table class="movie-table" id="table-top10">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Titel</th>
-            <th>Jahr</th>
-            <th>Deine ★</th>
-            <th>IMDB</th>
-          </tr>
-        </thead>
+        <thead><tr><th>#</th><th>Titel</th><th>Jahr</th><th>Du ★</th><th>IMDB</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
 
-    <!-- 15: Niedrigst bewertete Filme -->
     <div class="chart-box col-6">
-      <h3><span class="icon">💀</span> Deine Flops (schlechteste Bewertungen)</h3>
+      <div class="chart-title">
+        <div class="chart-title-icon" style="--title-icon-bg:rgba(248,113,113,0.1)">💀</div>
+        <h3>Deine Flops</h3>
+      </div>
       <table class="movie-table" id="table-flop10">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Titel</th>
-            <th>Jahr</th>
-            <th>Deine ★</th>
-            <th>IMDB</th>
-          </tr>
-        </thead>
+        <thead><tr><th>#</th><th>Titel</th><th>Jahr</th><th>Du ★</th><th>IMDB</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -745,65 +796,51 @@
 </section>
 
 <script>
-// ─────────────────────────────────────────────
-// Utilities
-// ─────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 const MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-const MONTH_FULL = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
-const CHART_DEFAULTS = {
-  color: '#e8e8e8',
+// ── Chart defaults ──────────────────────────────
+const BASE = {
+  color: '#f0f0f0',
   plugins: {
-    legend: { labels: { color: '#999', font: { size: 11 } } },
+    legend: { labels: { color: '#555', font: { size: 11, family: 'Inter' }, boxWidth: 12 } },
     tooltip: {
-      backgroundColor: '#242424',
+      backgroundColor: '#181818',
       titleColor: '#f5c518',
-      bodyColor: '#e8e8e8',
-      borderColor: '#444',
+      bodyColor: '#ccc',
+      borderColor: 'rgba(255,255,255,0.08)',
       borderWidth: 1,
+      padding: 10,
+      cornerRadius: 8,
     }
   },
   scales: {
-    x: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#222' } },
-    y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#222' } }
+    x: { ticks: { color: '#444', font: { size: 10, family: 'Inter' } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+    y: { ticks: { color: '#444', font: { size: 10, family: 'Inter' } }, grid: { color: 'rgba(255,255,255,0.04)' } }
   }
 };
 
-function mergeDeep(target, source) {
-  for (const key of Object.keys(source)) {
-    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-      if (!target[key]) target[key] = {};
-      mergeDeep(target[key], source[key]);
-    } else {
-      target[key] = source[key];
-    }
+function mergeDeep(t, s) {
+  for (const k of Object.keys(s)) {
+    if (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) {
+      if (!t[k]) t[k] = {};
+      mergeDeep(t[k], s[k]);
+    } else { t[k] = s[k]; }
   }
-  return target;
+  return t;
 }
 
-function chartOpts(extra = {}) {
-  return mergeDeep(JSON.parse(JSON.stringify(CHART_DEFAULTS)), extra);
+function opts(extra = {}) {
+  return mergeDeep(JSON.parse(JSON.stringify(BASE)), extra);
 }
 
-// Gold gradient helper
-function goldGradient(ctx, area) {
-  const g = ctx.createLinearGradient(0, area.bottom, 0, area.top);
-  g.addColorStop(0, 'rgba(245,197,24,0.3)');
-  g.addColorStop(1, 'rgba(245,197,24,0.9)');
-  return g;
-}
-
-// Color palette
 const PALETTE = [
-  '#f5c518','#42a5f5','#ab47bc','#4caf50','#ef5350',
-  '#ff9800','#26c6da','#ec407a','#66bb6a','#7e57c2',
-  '#ffa726','#29b6f6','#d4e157','#ff7043','#26a69a'
+  '#f5c518','#60a5fa','#c084fc','#4ade80','#f87171',
+  '#fb923c','#34d399','#f472b6','#a78bfa','#38bdf8',
+  '#fbbf24','#86efac','#fca5a5','#93c5fd','#d8b4fe'
 ];
 
-// ─────────────────────────────────────────────
-// CSV Parsing & Column Detection
-// ─────────────────────────────────────────────
+// ── CSV ─────────────────────────────────────────
 function detectColumns(fields) {
   const f = fields.map(s => s.trim().toLowerCase());
   const find = (...terms) => {
@@ -814,61 +851,49 @@ function detectColumns(fields) {
     return null;
   };
   return {
-    title:       find('title'),
-    year:        find('year'),
-    yourRating:  find('your rating', 'your_rating', 'yourrating', 'meine bewertung', 'bewertung'),
-    imdbRating:  find('imdb rating', 'imdb_rating', 'imdbrating'),
-    dateRated:   find('date rated', 'date_rated', 'bewertet am', 'created'),
-    genres:      find('genres'),
-    runtime:     find('runtime'),
-    directors:   find('directors', 'director'),
-    titleType:   find('title type', 'title_type', 'type', 'typ'),
-    numVotes:    find('num votes', 'num_votes', 'votes'),
-    const:       find('const'),
-    releaseDate: find('release date', 'release_date'),
+    title:      find('title'),
+    year:       find('year'),
+    yourRating: find('your rating','your_rating','yourrating','meine bewertung','bewertung'),
+    imdbRating: find('imdb rating','imdb_rating','imdbrating'),
+    dateRated:  find('date rated','date_rated','bewertet am','created'),
+    genres:     find('genres'),
+    runtime:    find('runtime'),
+    directors:  find('directors','director'),
+    titleType:  find('title type','title_type','type','typ'),
+    numVotes:   find('num votes','num_votes','votes'),
+    const:      find('const'),
   };
 }
 
-function parseRow(row, cols) {
+function parseRow(row, c) {
   return {
-    title:      (row[cols.title] || '').trim(),
-    year:       parseInt(row[cols.year]) || null,
-    yourRating: parseFloat(row[cols.yourRating]) || null,
-    imdbRating: parseFloat(row[cols.imdbRating]) || null,
-    dateRated:  row[cols.dateRated] ? new Date(row[cols.dateRated]) : null,
-    genres:     (row[cols.genres] || '').split(',').map(s => s.trim()).filter(Boolean),
-    runtime:    parseInt(row[cols.runtime]) || null,
-    directors:  (row[cols.directors] || '').split(',').map(s => s.trim()).filter(Boolean),
-    titleType:  (row[cols.titleType] || 'movie').trim(),
-    numVotes:   parseInt(row[cols.numVotes]) || null,
-    const:      (row[cols.const] || '').trim(),
+    title:      (row[c.title] || '').trim(),
+    year:       parseInt(row[c.year]) || null,
+    yourRating: parseFloat(row[c.yourRating]) || null,
+    imdbRating: parseFloat(row[c.imdbRating]) || null,
+    dateRated:  row[c.dateRated] ? new Date(row[c.dateRated]) : null,
+    genres:     (row[c.genres] || '').split(',').map(s => s.trim()).filter(Boolean),
+    runtime:    parseInt(row[c.runtime]) || null,
+    directors:  (row[c.directors] || '').split(',').map(s => s.trim()).filter(Boolean),
+    titleType:  (row[c.titleType] || 'movie').trim(),
+    numVotes:   parseInt(row[c.numVotes]) || null,
   };
 }
 
-// ─────────────────────────────────────────────
-// Chart instances (kept for cleanup)
-// ─────────────────────────────────────────────
+// ── Chart registry ───────────────────────────────
 const charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
-function destroyChart(id) {
-  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
-}
-
-// ─────────────────────────────────────────────
-// Main rendering
-// ─────────────────────────────────────────────
+// ── Main render ──────────────────────────────────
 function renderDashboard(movies) {
-  // Filter out rows without a rating
   const data = movies.filter(m => m.yourRating !== null && m.title);
-
-  if (data.length === 0) {
-    alert('Keine gültigen Bewertungsdaten gefunden. Bitte überprüfe das CSV-Format.');
-    return;
-  }
+  if (!data.length) { alert('Keine gültigen Bewertungsdaten gefunden.'); return; }
 
   $('upload-section').style.display = 'none';
   $('dashboard').style.display = 'block';
   $('reset-btn').style.display = 'flex';
+  $('file-counter').style.display = 'inline';
+  $('file-counter').textContent = `${data.length.toLocaleString('de')} Titel`;
 
   renderKPIs(data);
   renderMyRatings(data);
@@ -878,168 +903,139 @@ function renderDashboard(movies) {
   renderGenres(data);
   renderGenreRatings(data);
   renderScatter(data);
-  renderDecades(data);
   renderRuntime(data);
   renderTopDirectors(data);
   renderDiffTables(data);
+  renderDecades(data);
   renderHeatmap(data);
   renderTopBottom(data);
 }
 
-// ─────────────────────────────────────────────
-// KPIs
-// ─────────────────────────────────────────────
+// ── KPIs ─────────────────────────────────────────
 function renderKPIs(data) {
   $('stat-total').textContent = data.length.toLocaleString('de');
 
-  const avgMine = data.reduce((s, m) => s + m.yourRating, 0) / data.length;
+  const avgMine = data.reduce((s,m) => s+m.yourRating, 0) / data.length;
   $('stat-avg-mine').textContent = avgMine.toFixed(1);
 
   const withImdb = data.filter(m => m.imdbRating);
-  const avgImdb = withImdb.length
-    ? withImdb.reduce((s, m) => s + m.imdbRating, 0) / withImdb.length
-    : 0;
+  const avgImdb = withImdb.length ? withImdb.reduce((s,m) => s+m.imdbRating, 0) / withImdb.length : 0;
   $('stat-avg-imdb').textContent = avgImdb.toFixed(1);
 
-  const totalMins = data.reduce((s, m) => s + (m.runtime || 0), 0);
+  const totalMins = data.reduce((s,m) => s+(m.runtime||0), 0);
   const hours = Math.round(totalMins / 60);
   const days = Math.floor(hours / 24);
-  $('stat-runtime').textContent = hours >= 1000
-    ? `${days}d`
-    : `${hours}h`;
+  $('stat-runtime').textContent = hours >= 1000 ? `${days}d` : `${hours}h`;
   $('stat-runtime-sub').textContent = hours >= 1000
     ? `${hours.toLocaleString('de')} Stunden`
     : `${totalMins.toLocaleString('de')} Minuten`;
 
-  const allGenres = new Set(data.flatMap(m => m.genres));
-  $('stat-genres').textContent = allGenres.size;
+  $('stat-genres').textContent = new Set(data.flatMap(m => m.genres)).size;
+  $('stat-directors').textContent = new Set(data.flatMap(m => m.directors)).size.toLocaleString('de');
 
-  const allDirs = new Set(data.flatMap(m => m.directors));
-  $('stat-directors').textContent = allDirs.size.toLocaleString('de');
+  const rc = {};
+  data.forEach(m => { rc[m.yourRating] = (rc[m.yourRating]||0)+1; });
+  const fav = Object.entries(rc).sort((a,b) => b[1]-a[1])[0];
+  $('stat-fav-rating').textContent = fav ? `${fav[0]}★` : '–';
 
-  // Most common your rating
-  const ratingCounts = {};
-  data.forEach(m => { ratingCounts[m.yourRating] = (ratingCounts[m.yourRating] || 0) + 1; });
-  const favRating = Object.entries(ratingCounts).sort((a,b) => b[1]-a[1])[0];
-  $('stat-fav-rating').textContent = favRating ? `${favRating[0]}★` : '–';
-
-  // Busiest year (by date rated)
   const withDate = data.filter(m => m.dateRated && !isNaN(m.dateRated));
   if (withDate.length) {
-    const yearCounts = {};
-    withDate.forEach(m => {
-      const y = m.dateRated.getFullYear();
-      yearCounts[y] = (yearCounts[y] || 0) + 1;
-    });
-    const best = Object.entries(yearCounts).sort((a,b) => b[1]-a[1])[0];
+    const yc = {};
+    withDate.forEach(m => { const y = m.dateRated.getFullYear(); yc[y] = (yc[y]||0)+1; });
+    const best = Object.entries(yc).sort((a,b) => b[1]-a[1])[0];
     $('stat-busiest-year').textContent = best[0];
     $('stat-busiest-year-sub').textContent = `${best[1]} Bewertungen`;
-  }
 
-  // Date range label
-  if (withDate.length) {
     const dates = withDate.map(m => m.dateRated).sort((a,b) => a-b);
     const fmt = d => d.toLocaleDateString('de-DE', { month: 'short', year: 'numeric' });
     $('date-range-label').textContent = `${fmt(dates[0])} – ${fmt(dates[dates.length-1])}`;
   }
 }
 
-// ─────────────────────────────────────────────
-// Rating distribution (mine)
-// ─────────────────────────────────────────────
+// ── My ratings bar chart ─────────────────────────
 function renderMyRatings(data) {
   destroyChart('my-ratings');
   const counts = Array(10).fill(0);
   data.forEach(m => { if (m.yourRating >= 1 && m.yourRating <= 10) counts[m.yourRating-1]++; });
   const labels = Array.from({length:10}, (_,i) => i+1);
-  const canvas = $('chart-my-ratings');
-  const ctx = canvas.getContext('2d');
-  charts['my-ratings'] = new Chart(ctx, {
+  charts['my-ratings'] = new Chart($('chart-my-ratings').getContext('2d'), {
     type: 'bar',
     data: {
       labels,
       datasets: [{
-        label: 'Anzahl',
         data: counts,
-        backgroundColor: labels.map(l => l >= 7 ? 'rgba(245,197,24,0.85)' : l >= 5 ? 'rgba(245,197,24,0.45)' : 'rgba(239,83,80,0.55)'),
-        borderRadius: 6,
+        backgroundColor: labels.map(l =>
+          l >= 8 ? 'rgba(245,197,24,0.9)' :
+          l >= 6 ? 'rgba(245,197,24,0.55)' :
+          l >= 4 ? 'rgba(245,197,24,0.3)' :
+          'rgba(248,113,113,0.5)'),
+        borderRadius: 7,
         borderSkipped: false,
       }]
     },
-    options: chartOpts({
-      responsive: true,
-      maintainAspectRatio: false,
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: {
-        title: t => `Bewertung: ${t[0].label}★`,
+        title: t => `${t[0].label} Sterne`,
         label: t => ` ${t.raw} Titel`
       }}},
       scales: {
-        x: { title: { display: true, text: 'Deine Bewertung', color: '#666', font: { size: 10 } }},
-        y: { title: { display: true, text: 'Anzahl', color: '#666', font: { size: 10 } }, beginAtZero: true }
-      }
-    })
-  });
-}
-
-// ─────────────────────────────────────────────
-// Rating distribution (IMDB)
-// ─────────────────────────────────────────────
-function renderImdbRatings(data) {
-  destroyChart('imdb-ratings');
-  const bins = Array(19).fill(0); // 1.0, 1.5, 2.0 ... 10.0
-  const withImdb = data.filter(m => m.imdbRating);
-  withImdb.forEach(m => {
-    const idx = Math.round((m.imdbRating - 1) * 2);
-    if (idx >= 0 && idx < bins.length) bins[idx]++;
-  });
-  const labels = Array.from({length:19}, (_,i) => (1 + i*0.5).toFixed(1));
-  charts['imdb-ratings'] = new Chart($('chart-imdb-ratings').getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Anzahl',
-        data: bins,
-        backgroundColor: 'rgba(66,165,245,0.7)',
-        borderRadius: 4,
-        borderSkipped: false,
-      }]
-    },
-    options: chartOpts({
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: {
-        title: t => `IMDB: ${t[0].label}`,
-        label: t => ` ${t.raw} Titel`
-      }}},
-      scales: {
-        x: { title: { display: true, text: 'IMDB Bewertung', color: '#666', font: { size: 10 } }},
+        x: { title: { display: true, text: 'Deine Bewertung', color: '#444', font: { size: 10 } }},
         y: { beginAtZero: true }
       }
     })
   });
 }
 
-// ─────────────────────────────────────────────
-// Timeline
-// ─────────────────────────────────────────────
+// ── IMDB ratings ─────────────────────────────────
+function renderImdbRatings(data) {
+  destroyChart('imdb-ratings');
+  const bins = Array(19).fill(0);
+  data.filter(m => m.imdbRating).forEach(m => {
+    const i = Math.round((m.imdbRating - 1) * 2);
+    if (i >= 0 && i < 19) bins[i]++;
+  });
+  const labels = Array.from({length:19}, (_,i) => (1+i*0.5).toFixed(1));
+  charts['imdb-ratings'] = new Chart($('chart-imdb-ratings').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: bins,
+        backgroundColor: 'rgba(96,165,250,0.65)',
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        title: t => `IMDB ${t[0].label}`,
+        label: t => ` ${t.raw} Titel`
+      }}},
+      scales: {
+        x: { title: { display: true, text: 'IMDB Bewertung', color: '#444', font: { size: 10 } }},
+        y: { beginAtZero: true }
+      }
+    })
+  });
+}
+
+// ── Timeline ─────────────────────────────────────
 function renderTimeline(data) {
   destroyChart('timeline');
   const withDate = data.filter(m => m.dateRated && !isNaN(m.dateRated));
   if (!withDate.length) return;
-
   const monthly = {};
   withDate.forEach(m => {
-    const key = `${m.dateRated.getFullYear()}-${String(m.dateRated.getMonth()+1).padStart(2,'0')}`;
-    monthly[key] = (monthly[key] || 0) + 1;
+    const k = `${m.dateRated.getFullYear()}-${String(m.dateRated.getMonth()+1).padStart(2,'0')}`;
+    monthly[k] = (monthly[k]||0)+1;
   });
-
   const keys = Object.keys(monthly).sort();
   const labels = keys.map(k => {
     const [y,mo] = k.split('-');
     return `${MONTHS[parseInt(mo)-1]} ${y}`;
   });
-
   charts['timeline'] = new Chart($('chart-timeline').getContext('2d'), {
     type: 'line',
     data: {
@@ -1048,7 +1044,12 @@ function renderTimeline(data) {
         label: 'Bewertungen',
         data: keys.map(k => monthly[k]),
         borderColor: '#f5c518',
-        backgroundColor: 'rgba(245,197,24,0.1)',
+        backgroundColor: ctx => {
+          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
+          g.addColorStop(0, 'rgba(245,197,24,0.2)');
+          g.addColorStop(1, 'rgba(245,197,24,0)');
+          return g;
+        },
         borderWidth: 2,
         pointRadius: keys.length > 36 ? 0 : 3,
         pointBackgroundColor: '#f5c518',
@@ -1056,247 +1057,158 @@ function renderTimeline(data) {
         tension: 0.4,
       }]
     },
-    options: chartOpts({
-      responsive: true,
-      maintainAspectRatio: false,
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { maxTicksLimit: 12, maxRotation: 45 } },
+        x: { ticks: { maxTicksLimit: 10, maxRotation: 40 } },
         y: { beginAtZero: true }
       }
     })
   });
 }
 
-// ─────────────────────────────────────────────
-// Title Types (Doughnut)
-// ─────────────────────────────────────────────
+// ── Types doughnut ───────────────────────────────
 function renderTypes(data) {
   destroyChart('types');
+  const MAP = { movie:'Film', tvMovie:'TV-Film', tvSeries:'TV-Serie', tvMiniSeries:'Miniserie',
+    tvSpecial:'TV-Special', short:'Kurzfilm', video:'Video', videoGame:'Videospiel', tvEpisode:'Episode' };
   const counts = {};
-  const typeLabels = {
-    movie: 'Film',
-    tvMovie: 'TV-Film',
-    tvSeries: 'TV-Serie',
-    tvMiniSeries: 'Miniserie',
-    tvSpecial: 'TV-Special',
-    short: 'Kurzfilm',
-    video: 'Video',
-    videoGame: 'Videospiel',
-    tvEpisode: 'TV-Episode',
-  };
-  data.forEach(m => {
-    const t = typeLabels[m.titleType] || m.titleType || 'Unbekannt';
-    counts[t] = (counts[t] || 0) + 1;
-  });
-
+  data.forEach(m => { const t = MAP[m.titleType] || m.titleType || 'Sonstige'; counts[t] = (counts[t]||0)+1; });
   const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
   charts['types'] = new Chart($('chart-types').getContext('2d'), {
     type: 'doughnut',
     data: {
       labels: entries.map(e => e[0]),
-      datasets: [{
-        data: entries.map(e => e[1]),
-        backgroundColor: PALETTE,
-        borderColor: '#1a1a1a',
-        borderWidth: 2,
-      }]
+      datasets: [{ data: entries.map(e => e[1]), backgroundColor: PALETTE, borderColor: '#111', borderWidth: 2 }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
       plugins: {
-        legend: { position: 'right', labels: { color: '#999', font: { size: 10 }, boxWidth: 12, padding: 8 } },
+        legend: { position: 'right', labels: { color: '#666', font: { size: 10, family: 'Inter' }, boxWidth: 10, padding: 6 } },
         tooltip: {
-          backgroundColor: '#242424',
-          titleColor: '#f5c518',
-          bodyColor: '#e8e8e8',
-          borderColor: '#444',
-          borderWidth: 1,
-          callbacks: {
-            label: t => ` ${t.label}: ${t.raw} (${Math.round(t.raw/data.length*100)}%)`
-          }
+          backgroundColor: '#181818', titleColor: '#f5c518', bodyColor: '#ccc',
+          borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1, cornerRadius: 8, padding: 10,
+          callbacks: { label: t => ` ${t.label}: ${t.raw} (${Math.round(t.raw/data.length*100)}%)` }
         }
-      },
-      cutout: '60%',
+      }
     }
   });
 }
 
-// ─────────────────────────────────────────────
-// Genres (horizontal bar)
-// ─────────────────────────────────────────────
+// ── Genres bar ───────────────────────────────────
 function renderGenres(data) {
   destroyChart('genres');
   const counts = {};
   data.forEach(m => m.genres.forEach(g => { counts[g] = (counts[g]||0)+1; }));
-  const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 15);
-
+  const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,15);
   charts['genres'] = new Chart($('chart-genres').getContext('2d'), {
     type: 'bar',
     data: {
       labels: entries.map(e => e[0]),
       datasets: [{
-        label: 'Anzahl',
         data: entries.map(e => e[1]),
-        backgroundColor: entries.map((_,i) => PALETTE[i % PALETTE.length]),
-        borderRadius: 5,
+        backgroundColor: entries.map((_,i) => PALETTE[i%PALETTE.length] + 'CC'),
+        borderRadius: 6,
         borderSkipped: false,
       }]
     },
-    options: chartOpts({
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
+    options: opts({
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
-      scales: {
-        x: { beginAtZero: true },
-        y: { ticks: { font: { size: 11 } } }
-      }
+      scales: { x: { beginAtZero: true }, y: { ticks: { font: { size: 11 } } } }
     })
   });
 }
 
-// ─────────────────────────────────────────────
-// Genre avg rating
-// ─────────────────────────────────────────────
+// ── Genre avg rating ─────────────────────────────
 function renderGenreRatings(data) {
   destroyChart('genre-ratings');
   const sums = {}, cnts = {};
-  data.forEach(m => {
-    m.genres.forEach(g => {
-      sums[g] = (sums[g]||0) + m.yourRating;
-      cnts[g] = (cnts[g]||0) + 1;
-    });
-  });
+  data.forEach(m => m.genres.forEach(g => {
+    sums[g] = (sums[g]||0) + m.yourRating;
+    cnts[g] = (cnts[g]||0) + 1;
+  }));
   const entries = Object.entries(cnts)
     .filter(([,c]) => c >= 3)
     .map(([g]) => [g, sums[g]/cnts[g]])
-    .sort((a,b) => b[1]-a[1])
-    .slice(0, 15);
-
+    .sort((a,b) => b[1]-a[1]).slice(0,15);
   charts['genre-ratings'] = new Chart($('chart-genre-ratings').getContext('2d'), {
     type: 'bar',
     data: {
       labels: entries.map(e => e[0]),
       datasets: [{
-        label: 'Ø Bewertung',
         data: entries.map(e => parseFloat(e[1].toFixed(2))),
         backgroundColor: entries.map(e => {
           const v = e[1];
-          if (v >= 7.5) return 'rgba(76,175,80,0.8)';
-          if (v >= 6)   return 'rgba(245,197,24,0.8)';
-          return 'rgba(239,83,80,0.7)';
+          if (v >= 7.5) return 'rgba(74,222,128,0.75)';
+          if (v >= 6)   return 'rgba(245,197,24,0.75)';
+          return 'rgba(248,113,113,0.65)';
         }),
-        borderRadius: 5,
+        borderRadius: 6,
         borderSkipped: false,
       }]
     },
-    options: chartOpts({
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: {
-        label: t => ` Ø ${t.raw}★`
-      }}},
-      scales: {
-        x: { min: 0, max: 10 },
-        y: { ticks: { font: { size: 11 } } }
-      }
+    options: opts({
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: t => ` Ø ${t.raw}★` }}},
+      scales: { x: { min: 0, max: 10 }, y: { ticks: { font: { size: 11 } } } }
     })
   });
 }
 
-// ─────────────────────────────────────────────
-// Scatter: deine vs IMDB
-// ─────────────────────────────────────────────
+// ── Scatter ──────────────────────────────────────
 function renderScatter(data) {
   destroyChart('scatter');
-  const pts = data
-    .filter(m => m.yourRating && m.imdbRating)
+  const pts = data.filter(m => m.yourRating && m.imdbRating)
     .map(m => ({ x: m.imdbRating, y: m.yourRating, title: m.title }));
-
   charts['scatter'] = new Chart($('chart-scatter').getContext('2d'), {
     type: 'scatter',
     data: {
       datasets: [{
         label: 'Film',
         data: pts,
-        backgroundColor: 'rgba(245,197,24,0.5)',
+        backgroundColor: 'rgba(245,197,24,0.45)',
         pointRadius: 4,
-        pointHoverRadius: 6,
+        pointHoverRadius: 7,
+        pointBorderColor: 'transparent',
       },{
-        // diagonal reference line
-        label: 'Gleiche Bewertung',
+        label: 'Gleich',
         data: [{x:1,y:1},{x:10,y:10}],
         type: 'line',
-        borderColor: 'rgba(255,255,255,0.15)',
-        borderDash: [5,5],
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderDash: [4,4],
         borderWidth: 1,
         pointRadius: 0,
         fill: false,
       }]
     },
-    options: chartOpts({
-      responsive: true,
-      maintainAspectRatio: false,
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: t => {
-              if (!t.raw.title) return `(${t.raw.x}, ${t.raw.y})`;
-              return `${t.raw.title} | IMDB: ${t.raw.x} | Du: ${t.raw.y}`;
-            }
-          }
-        }
+        tooltip: { callbacks: {
+          label: t => t.raw.title ? `${t.raw.title}  IMDB:${t.raw.x}  Du:${t.raw.y}` : ''
+        }}
       },
       scales: {
-        x: { min: 1, max: 10, title: { display: true, text: 'IMDB Bewertung', color: '#666', font: { size: 10 } } },
-        y: { min: 1, max: 10, title: { display: true, text: 'Deine Bewertung', color: '#666', font: { size: 10 } } }
+        x: { min:1, max:10, title:{ display:true, text:'IMDB Bewertung', color:'#444', font:{size:10} } },
+        y: { min:1, max:10, title:{ display:true, text:'Deine Bewertung', color:'#444', font:{size:10} } }
       }
     })
   });
 }
 
-// ─────────────────────────────────────────────
-// Decades
-// ─────────────────────────────────────────────
-function renderDecades(data) {
-  const counts = {};
-  data.forEach(m => {
-    if (!m.year) return;
-    const dec = Math.floor(m.year / 10) * 10;
-    counts[dec] = (counts[dec]||0)+1;
-  });
-  const entries = Object.entries(counts).sort((a,b) => a[0]-b[0]);
-  const max = Math.max(...entries.map(e => e[1]));
-  const colors = ['#f5c518','#42a5f5','#ab47bc','#4caf50','#ef5350','#ff9800','#26c6da','#ec407a','#66bb6a','#7e57c2','#ffa726'];
-
-  $('decades-list').innerHTML = entries.map(([dec, cnt], i) => `
-    <div class="breakdown-item">
-      <div class="b-label">${dec}er</div>
-      <div class="b-bar-bg">
-        <div class="b-bar-fill" style="width:${cnt/max*100}%;background:${colors[i%colors.length]}"></div>
-      </div>
-      <div class="b-count">${cnt}</div>
-    </div>
-  `).join('');
-}
-
-// ─────────────────────────────────────────────
-// Runtime histogram
-// ─────────────────────────────────────────────
+// ── Runtime ──────────────────────────────────────
 function renderRuntime(data) {
   destroyChart('runtime');
-  const withRuntime = data.filter(m => m.runtime && m.runtime > 0);
-  if (!withRuntime.length) return;
-
-  const bins = [0,0,0,0,0,0,0]; // <60, 60-89, 90-109, 110-129, 130-159, 160-179, 180+
-  const labels = ['<60','60-89','90-109','110-129','130-159','160-179','180+'];
-  withRuntime.forEach(m => {
+  const withR = data.filter(m => m.runtime > 0);
+  if (!withR.length) return;
+  const bins = [0,0,0,0,0,0,0];
+  const labels = ['<60','60–89','90–109','110–129','130–159','160–179','180+'];
+  withR.forEach(m => {
     const r = m.runtime;
-    if (r < 60)       bins[0]++;
+    if      (r < 60)  bins[0]++;
     else if (r < 90)  bins[1]++;
     else if (r < 110) bins[2]++;
     else if (r < 130) bins[3]++;
@@ -1304,100 +1216,93 @@ function renderRuntime(data) {
     else if (r < 180) bins[5]++;
     else              bins[6]++;
   });
-
   charts['runtime'] = new Chart($('chart-runtime').getContext('2d'), {
     type: 'bar',
     data: {
       labels,
       datasets: [{
-        label: 'Anzahl',
         data: bins,
-        backgroundColor: 'rgba(171,71,188,0.7)',
-        borderRadius: 5,
+        backgroundColor: 'rgba(192,132,252,0.65)',
+        borderRadius: 6,
         borderSkipped: false,
       }]
     },
-    options: chartOpts({
-      responsive: true,
-      maintainAspectRatio: false,
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: {
         title: t => `${t[0].label} Minuten`,
         label: t => ` ${t.raw} Titel`
       }}},
       scales: {
-        x: { title: { display: true, text: 'Minuten', color: '#666', font: { size: 10 } }},
+        x: { title:{ display:true, text:'Minuten', color:'#444', font:{size:10} }},
         y: { beginAtZero: true }
       }
     })
   });
 }
 
-// ─────────────────────────────────────────────
-// Top Directors
-// ─────────────────────────────────────────────
+// ── Top Directors ────────────────────────────────
 function renderTopDirectors(data) {
-  const counts = {};
-  const ratings = {};
-  data.forEach(m => {
-    m.directors.forEach(d => {
-      if (!d) return;
-      counts[d] = (counts[d]||0)+1;
-      ratings[d] = (ratings[d]||[]);
-      ratings[d].push(m.yourRating);
-    });
-  });
+  const counts = {}, ratings = {};
+  data.forEach(m => m.directors.forEach(d => {
+    if (!d) return;
+    counts[d] = (counts[d]||0)+1;
+    (ratings[d] = ratings[d]||[]).push(m.yourRating);
+  }));
   const top = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,10);
-  const maxCount = top[0]?.[1] || 1;
-
-  $('top-directors').innerHTML = top.map(([dir, cnt], i) => {
+  const maxC = top[0]?.[1]||1;
+  $('top-directors').innerHTML = top.map(([dir,cnt],i) => {
     const avg = (ratings[dir].reduce((a,b)=>a+b,0)/ratings[dir].length).toFixed(1);
-    return `
-      <li>
-        <span class="rank">${i+1}</span>
-        <span class="name" title="${dir}">${dir}</span>
-        <div class="bar-bg"><div class="bar-fill" style="width:${cnt/maxCount*100}%"></div></div>
-        <span class="count">${cnt}</span>
-        <span class="badge badge-gold">${avg}★</span>
-      </li>`;
+    return `<li>
+      <span class="rank">${i+1}</span>
+      <span class="name" title="${dir}">${dir}</span>
+      <span class="count">${cnt} Filme</span>
+      <span class="badge badge-gold">${avg}★</span>
+    </li>`;
   }).join('');
 }
 
-// ─────────────────────────────────────────────
-// Diff tables (over/underrated)
-// ─────────────────────────────────────────────
+// ── Diff tables ──────────────────────────────────
 function renderDiffTables(data) {
   const withBoth = data.filter(m => m.yourRating && m.imdbRating)
     .map(m => ({ ...m, diff: m.yourRating - m.imdbRating }));
 
-  const buildRows = (entries, positive) => entries.slice(0,8).map((m, i) => {
-    const diff = m.diff.toFixed(1);
+  const rows = (entries, positive) => entries.slice(0,8).map(m => {
     const sign = m.diff > 0 ? '+' : '';
-    const cls = positive ? 'badge-green' : 'badge-red';
+    const cls  = positive ? 'badge-green' : 'badge-red';
     return `<tr>
       <td class="title-cell" title="${m.title}">${m.title}</td>
       <td>${m.yourRating}</td>
       <td>${m.imdbRating.toFixed(1)}</td>
-      <td><span class="badge ${cls}">${sign}${diff}</span></td>
+      <td><span class="badge ${cls}">${sign}${m.diff.toFixed(1)}</span></td>
     </tr>`;
   }).join('');
 
-  const over = withBoth.filter(m => m.diff > 0).sort((a,b) => b.diff - a.diff);
-  $('table-overrated').querySelector('tbody').innerHTML = buildRows(over, true);
-
-  const under = withBoth.filter(m => m.diff < 0).sort((a,b) => a.diff - b.diff);
-  $('table-underrated').querySelector('tbody').innerHTML = buildRows(under, false);
+  $('table-overrated').querySelector('tbody').innerHTML  = rows(withBoth.filter(m=>m.diff>0).sort((a,b)=>b.diff-a.diff), true);
+  $('table-underrated').querySelector('tbody').innerHTML = rows(withBoth.filter(m=>m.diff<0).sort((a,b)=>a.diff-b.diff), false);
 }
 
-// ─────────────────────────────────────────────
-// Heatmap (last 52 weeks)
-// ─────────────────────────────────────────────
+// ── Decades ──────────────────────────────────────
+function renderDecades(data) {
+  const counts = {};
+  data.forEach(m => { if (!m.year) return; const d = Math.floor(m.year/10)*10; counts[d]=(counts[d]||0)+1; });
+  const entries = Object.entries(counts).sort((a,b) => a[0]-b[0]);
+  const max = Math.max(...entries.map(e=>e[1]));
+  $('decades-list').innerHTML = entries.map(([dec,cnt],i) => `
+    <div class="breakdown-item">
+      <div class="b-label">${dec}er</div>
+      <div class="b-bar-bg"><div class="b-bar-fill" style="width:${cnt/max*100}%;background:${PALETTE[i%PALETTE.length]}"></div></div>
+      <div class="b-count">${cnt}</div>
+    </div>`).join('');
+}
+
+// ── Heatmap ──────────────────────────────────────
 function renderHeatmap(data) {
   const withDate = data.filter(m => m.dateRated && !isNaN(m.dateRated));
   if (!withDate.length) {
-    $('heatmap-container').innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem">Keine Datumsinformationen vorhanden.</div>';
+    $('heatmap-container').innerHTML = '<span style="font-size:0.82rem;color:#444">Keine Datumsinformationen verfügbar.</span>';
     return;
   }
-
   const today = new Date();
   const startDate = new Date(today);
   startDate.setDate(today.getDate() - 364);
@@ -1407,142 +1312,99 @@ function renderHeatmap(data) {
   withDate.forEach(m => {
     const d = new Date(m.dateRated);
     d.setHours(0,0,0,0);
-    if (d >= startDate) {
-      const key = d.toISOString().slice(0,10);
-      dayMap[key] = (dayMap[key]||0)+1;
-    }
+    if (d >= startDate) { const k = d.toISOString().slice(0,10); dayMap[k]=(dayMap[k]||0)+1; }
   });
 
   const maxVal = Math.max(...Object.values(dayMap), 1);
-  const heatColors = ['var(--bg4)', '#1a3a1a', '#2d6a2d', '#4caf50', '#81c784'];
+  const heat = v => {
+    if (!v) return '#1c1c1c';
+    const r = v/maxVal;
+    if (r < 0.25) return '#1a3a1a';
+    if (r < 0.5)  return '#166534';
+    if (r < 0.75) return '#16a34a';
+    return '#4ade80';
+  };
 
-  function heatColor(v) {
-    if (!v) return heatColors[0];
-    const ratio = v / maxVal;
-    if (ratio < 0.25) return heatColors[1];
-    if (ratio < 0.5)  return heatColors[2];
-    if (ratio < 0.75) return heatColors[3];
-    return heatColors[4];
-  }
-
-  // Build 53 weeks × 7 days
-  const DAY_LABELS = ['','Mo','','Mi','','Fr',''];
-  let html = '<div style="display:flex;gap:4px;">';
-  html += '<div style="display:flex;flex-direction:column;gap:3px;margin-right:2px">';
-  DAY_LABELS.forEach(l => {
-    html += `<div style="height:14px;font-size:0.6rem;color:var(--text-muted);display:flex;align-items:center;width:18px">${l}</div>`;
-  });
-  html += '</div>';
-
-  // Start on previous Sunday
   const cur = new Date(startDate);
-  const dow = cur.getDay();
-  cur.setDate(cur.getDate() - dow);
+  cur.setDate(cur.getDate() - cur.getDay());
 
-  let currentMonth = -1;
-  let monthHeaderHtml = '<div style="display:flex;gap:4px;margin-left:22px;margin-bottom:4px;">';
-
-  const columns = [];
+  const cols = [];
   while (cur <= today) {
     const col = [];
     for (let d = 0; d < 7; d++) {
-      const key = cur.toISOString().slice(0,10);
-      const inRange = cur >= startDate && cur <= today;
-      const val = dayMap[key] || 0;
-      col.push({ key, val, inRange, month: cur.getMonth(), day: cur.getDay() });
+      const k = cur.toISOString().slice(0,10);
+      col.push({ k, val: dayMap[k]||0, inRange: cur >= startDate && cur <= today });
       cur.setDate(cur.getDate()+1);
     }
-    columns.push(col);
+    cols.push(col);
   }
 
-  // Month labels
-  const monthPositions = {};
-  columns.forEach((col, ci) => {
-    const m = col[0].month;
-    if (!monthPositions[m]) monthPositions[m] = ci;
-  });
+  const DAY = ['','Mo','','Mi','','Fr',''];
+  let html = '<div style="display:flex;gap:3px">';
+  html += '<div style="display:flex;flex-direction:column;gap:3px;margin-right:3px">';
+  DAY.forEach(l => { html += `<div style="height:13px;width:16px;font-size:0.58rem;color:#444;display:flex;align-items:center">${l}</div>`; });
+  html += '</div>';
 
-  // render
-  html += columns.map(col => {
-    return `<div style="display:flex;flex-direction:column;gap:3px;">` +
-      col.map(cell => {
-        if (!cell.inRange) return `<div style="width:14px;height:14px;border-radius:2px;background:transparent"></div>`;
-        const tip = cell.val ? `${cell.key}: ${cell.val} Bewertung${cell.val>1?'en':''}` : cell.key;
-        return `<div title="${tip}" style="width:14px;height:14px;border-radius:2px;background:${heatColor(cell.val)};cursor:default"></div>`;
-      }).join('') +
-    '</div>';
+  html += cols.map(col => {
+    return '<div style="display:flex;flex-direction:column;gap:3px">' +
+      col.map(c => {
+        if (!c.inRange) return '<div style="width:13px;height:13px"></div>';
+        const tip = c.val ? `${c.k}: ${c.val} Bewertung${c.val>1?'en':''}` : c.k;
+        return `<div title="${tip}" style="width:13px;height:13px;border-radius:2px;background:${heat(c.val)};cursor:default"></div>`;
+      }).join('') + '</div>';
   }).join('');
 
   html += '</div>';
   $('heatmap-container').innerHTML = html;
 }
 
-// ─────────────────────────────────────────────
-// Top & Bottom 10
-// ─────────────────────────────────────────────
+// ── Top & Bottom 10 ──────────────────────────────
 function renderTopBottom(data) {
-  const sorted = [...data].sort((a,b) => b.yourRating - a.yourRating || b.imdbRating - a.imdbRating);
-
-  const buildRows = entries => entries.slice(0,10).map((m, i) => `
+  const sorted = [...data].sort((a,b) => b.yourRating-a.yourRating || (b.imdbRating||0)-(a.imdbRating||0));
+  const rows = entries => entries.slice(0,10).map((m,i) => `
     <tr>
-      <td style="color:var(--text-muted)">${i+1}</td>
+      <td style="color:var(--text-muted);font-variant-numeric:tabular-nums">${i+1}</td>
       <td class="title-cell" title="${m.title}">${m.title}</td>
       <td style="color:var(--text-muted)">${m.year||'–'}</td>
       <td><span class="badge badge-gold">${m.yourRating}★</span></td>
-      <td style="color:var(--text-muted)">${m.imdbRating ? m.imdbRating.toFixed(1) : '–'}</td>
-    </tr>
-  `).join('');
-
-  $('table-top10').querySelector('tbody').innerHTML = buildRows(sorted);
-  $('table-flop10').querySelector('tbody').innerHTML = buildRows([...sorted].reverse());
+      <td style="color:var(--text-muted)">${m.imdbRating?m.imdbRating.toFixed(1):'–'}</td>
+    </tr>`).join('');
+  $('table-top10').querySelector('tbody').innerHTML  = rows(sorted);
+  $('table-flop10').querySelector('tbody').innerHTML = rows([...sorted].reverse());
 }
 
-// ─────────────────────────────────────────────
-// CSV loading
-// ─────────────────────────────────────────────
+// ── CSV loading ──────────────────────────────────
 function loadCSV(file) {
   Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    complete: result => {
-      if (!result.data.length) {
-        alert('Die CSV-Datei scheint leer zu sein.');
-        return;
-      }
-      const cols = detectColumns(result.meta.fields);
-      if (!cols.title || !cols.yourRating) {
-        alert('Konnte die CSV-Spalten nicht erkennen. Stelle sicher, dass du die offizielle IMDB-Exportdatei verwendest.');
-        return;
-      }
-      const movies = result.data.map(row => parseRow(row, cols));
-      renderDashboard(movies);
+    header: true, skipEmptyLines: true,
+    complete: res => {
+      if (!res.data.length) { alert('CSV-Datei ist leer.'); return; }
+      const cols = detectColumns(res.meta.fields);
+      if (!cols.title || !cols.yourRating) { alert('Konnte CSV-Spalten nicht erkennen. Bitte offizielle IMDB-Exportdatei verwenden.'); return; }
+      renderDashboard(res.data.map(row => parseRow(row, cols)));
     },
-    error: err => alert('Fehler beim Lesen der Datei: ' + err.message)
+    error: err => alert('Fehler: ' + err.message)
   });
 }
 
-// ─────────────────────────────────────────────
-// Event listeners
-// ─────────────────────────────────────────────
-$('file-input').addEventListener('change', e => {
-  if (e.target.files[0]) loadCSV(e.target.files[0]);
-});
+// ── Events ───────────────────────────────────────
+$('file-input').addEventListener('change', e => { if (e.target.files[0]) loadCSV(e.target.files[0]); });
 
-const dropZone = $('drop-zone');
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file && file.name.endsWith('.csv')) loadCSV(file);
-  else alert('Bitte eine .csv Datei hochladen.');
+const dz = $('drop-zone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', ()  => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f?.name.endsWith('.csv')) loadCSV(f);
+  else alert('Bitte eine .csv Datei ablegen.');
 });
 
 $('reset-btn').addEventListener('click', () => {
   $('dashboard').style.display = 'none';
   $('upload-section').style.display = 'flex';
   $('reset-btn').style.display = 'none';
+  $('file-counter').style.display = 'none';
   $('file-input').value = '';
   Object.keys(charts).forEach(destroyChart);
 });
