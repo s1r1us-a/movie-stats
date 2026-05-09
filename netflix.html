@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Netflix Stats</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --red:         #E50914;
+      --red-glow:    rgba(229,9,20,0.25);
+      --red-subtle:  rgba(229,9,20,0.08);
+      --border-red:  rgba(229,9,20,0.3);
+      --bg:          #080808;
+      --bg2:         #111111;
+      --bg3:         #181818;
+      --bg4:         #222222;
+      --bg5:         #2a2a2a;
+      --border:      rgba(255,255,255,0.07);
+      --text:        #f0f0f0;
+      --text-dim:    #888;
+      --text-muted:  #444;
+      --green:       #4ade80;
+      --red2:        #f87171;
+      --blue:        #60a5fa;
+      --purple:      #c084fc;
+      --orange:      #fb923c;
+      --radius:      14px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--bg5); border-radius: 99px; }
+
+    /* ── HEADER ── */
+    header {
+      position: sticky; top: 0; z-index: 200;
+      height: 56px; display: flex; align-items: center;
+      padding: 0 1.75rem; gap: 1rem;
+      background: rgba(8,8,8,0.88);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      background: var(--red); color: #fff;
+      font-weight: 900; font-size: 0.9rem;
+      padding: 3px 8px; border-radius: 5px;
+      letter-spacing: 1px; flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 0.95rem; font-weight: 600;
+      color: var(--text); letter-spacing: -0.01em;
+    }
+    .header-right {
+      margin-left: auto; display: flex;
+      align-items: center; gap: 0.75rem;
+    }
+    #file-counter {
+      font-size: 0.78rem; color: var(--text-dim);
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 99px; padding: 3px 10px; display: none;
+    }
+    #reset-btn {
+      display: none; align-items: center; gap: 5px;
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text-dim); font-size: 0.78rem;
+      padding: 4px 12px; border-radius: 99px;
+      cursor: pointer; font-family: inherit;
+      transition: all 0.15s;
+    }
+    #reset-btn:hover { border-color: var(--red); color: var(--text); }
+
+    /* ── UPLOAD ── */
+    #upload-section {
+      min-height: calc(100vh - 56px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 2rem;
+    }
+    .upload-card {
+      background: var(--bg2);
+      border: 1.5px dashed rgba(229,9,20,0.3);
+      border-radius: 20px; padding: 3rem 2.5rem;
+      max-width: 480px; width: 100%; text-align: center;
+      cursor: pointer; transition: all 0.2s;
+      background-image: radial-gradient(ellipse at 50% 0%, rgba(229,9,20,0.06) 0%, transparent 60%);
+    }
+    .upload-card:hover, .upload-card.dragover {
+      border-color: var(--red);
+      background-image: radial-gradient(ellipse at 50% 0%, rgba(229,9,20,0.12) 0%, transparent 60%);
+      box-shadow: 0 0 0 4px var(--red-glow);
+    }
+    .upload-icon {
+      font-size: 3rem; margin-bottom: 1rem;
+      filter: drop-shadow(0 0 12px rgba(229,9,20,0.4));
+    }
+    .upload-card h2 {
+      font-size: 1.25rem; font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .upload-card p {
+      font-size: 0.85rem; color: var(--text-dim);
+      line-height: 1.6; margin-bottom: 1.5rem;
+    }
+    .upload-card code {
+      background: var(--bg4); border: 1px solid var(--border);
+      padding: 2px 7px; border-radius: 5px;
+      font-size: 0.8rem; font-family: monospace; color: var(--text);
+    }
+    .btn-upload {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--red); color: #fff;
+      border: none; border-radius: 10px;
+      padding: 0.65rem 1.5rem; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: all 0.15s;
+    }
+    .btn-upload:hover { background: #f40612; transform: translateY(-1px); }
+    .privacy-note {
+      margin-top: 1.25rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .privacy-note span { color: var(--green); }
+    #file-input { display: none; }
+
+    /* ── DASHBOARD ── */
+    #dashboard { display: none; padding: 1.5rem 1.75rem 3rem; }
+
+    .dash-header {
+      display: flex; align-items: baseline; gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .dash-header h2 {
+      font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em;
+    }
+    #date-range-label {
+      font-size: 0.8rem; color: var(--text-dim);
+    }
+
+    /* ── CARDS ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.9rem; margin-bottom: 1.5rem;
+    }
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      position: relative; overflow: hidden;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .card::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: var(--card-accent, var(--red));
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .card::after {
+      content: ''; position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, var(--red-subtle), transparent 70%);
+      pointer-events: none;
+    }
+    .card:hover { transform: translateY(-2px); border-color: rgba(229,9,20,0.2); }
+    .card-icon { font-size: 1.1rem; display: block; margin-bottom: 0.4rem; }
+    .card-label {
+      font-size: 0.7rem; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-dim); margin-bottom: 0.3rem;
+    }
+    .card-value {
+      font-size: 1.6rem; font-weight: 800;
+      letter-spacing: -0.03em; line-height: 1;
+      margin-bottom: 0.25rem;
+    }
+    .card-sub { font-size: 0.7rem; color: var(--text-dim); }
+
+    /* ── CHARTS GRID ── */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 1rem;
+    }
+    .col-12 { grid-column: span 12; }
+    .col-8  { grid-column: span 8; }
+    .col-7  { grid-column: span 7; }
+    .col-6  { grid-column: span 6; }
+    .col-5  { grid-column: span 5; }
+    .col-4  { grid-column: span 4; }
+
+    .chart-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      animation: fadeUp 0.35s ease both;
+    }
+    .chart-title {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .chart-title-icon {
+      width: 26px; height: 26px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; flex-shrink: 0;
+    }
+    .chart-title h3 {
+      font-size: 0.82rem; font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .chart-title .sub {
+      margin-left: auto; font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .chart-wrap { position: relative; }
+    .chart-wrap canvas { display: block; }
+
+    /* ── HEATMAP ── */
+    .heatmap-grid {
+      display: flex; gap: 3px;
+      overflow-x: auto; padding-bottom: 4px;
+    }
+    .hm-col { display: flex; flex-direction: column; gap: 3px; }
+    .hm-cell {
+      width: 13px; height: 13px; border-radius: 3px;
+      cursor: default; flex-shrink: 0;
+      transition: opacity 0.15s;
+    }
+    .hm-cell:hover { opacity: 0.75; }
+    .hm-labels {
+      display: flex; justify-content: flex-end; gap: 6px;
+      font-size: 0.68rem; color: var(--text-dim);
+      margin-top: 0.5rem; align-items: center;
+    }
+    .hm-legend-cell {
+      width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0;
+    }
+    .hm-month-labels {
+      display: flex; gap: 3px; margin-bottom: 4px;
+      font-size: 0.65rem; color: var(--text-muted); padding-left: 18px;
+    }
+    .hm-month-label { flex: 1; min-width: 0; overflow: hidden; }
+    .hm-outer { display: flex; }
+    .hm-day-labels {
+      display: flex; flex-direction: column;
+      gap: 3px; margin-right: 4px; padding-top: 0;
+    }
+    .hm-day-label {
+      height: 13px; display: flex; align-items: center;
+      font-size: 0.62rem; color: var(--text-muted);
+    }
+
+    /* ── TABLES ── */
+    .list-table { width: 100%; border-collapse: collapse; }
+    .list-table th {
+      font-size: 0.68rem; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-muted);
+      padding: 0 0.5rem 0.6rem; text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .list-table td {
+      padding: 0.55rem 0.5rem; font-size: 0.8rem;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      vertical-align: middle;
+    }
+    .list-table tr:last-child td { border-bottom: none; }
+    .list-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .rank-cell { color: var(--text-muted); font-size: 0.72rem; width: 24px; }
+    .title-cell { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .num-cell { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+    .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.68rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 99px; white-space: nowrap; flex-shrink: 0;
+    }
+    .badge-red   { background: rgba(229,9,20,0.15); color: #f87171; }
+    .badge-blue  { background: rgba(96,165,250,0.12); color: #60a5fa; }
+    .badge-green { background: rgba(74,222,128,0.12); color: #4ade80; }
+    .badge-gray  { background: var(--bg4); color: var(--text-dim); }
+    .badge-purple{ background: rgba(192,132,252,0.12); color: #c084fc; }
+    .badge-orange{ background: rgba(251,146,60,0.12); color: #fb923c; }
+
+    /* top show bars (breakdown) */
+    .breakdown-wrap { display: flex; flex-direction: column; gap: 6px; }
+    .breakdown-row { display: flex; align-items: center; gap: 8px; }
+    .breakdown-label {
+      font-size: 0.75rem; width: 130px; flex-shrink: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .breakdown-bar-bg {
+      flex: 1; height: 8px; border-radius: 99px;
+      background: var(--bg4); overflow: hidden;
+    }
+    .breakdown-bar-fill {
+      height: 100%; border-radius: 99px;
+      background: var(--red); transition: width 0.5s ease;
+    }
+    .breakdown-val {
+      font-size: 0.72rem; color: var(--text-dim);
+      width: 30px; text-align: right; flex-shrink: 0;
+    }
+
+    /* section label */
+    .section-label {
+      font-size: 0.68rem; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-muted);
+      margin-bottom: 0.75rem; font-weight: 600;
+    }
+
+    /* empty state */
+    .empty-state {
+      text-align: center; padding: 2rem 1rem;
+      color: var(--text-muted); font-size: 0.82rem;
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card { animation: fadeUp 0.3s ease both; }
+    .card:nth-child(1)  { animation-delay: 0.02s; }
+    .card:nth-child(2)  { animation-delay: 0.04s; }
+    .card:nth-child(3)  { animation-delay: 0.06s; }
+    .card:nth-child(4)  { animation-delay: 0.08s; }
+    .card:nth-child(5)  { animation-delay: 0.10s; }
+    .card:nth-child(6)  { animation-delay: 0.12s; }
+    .card:nth-child(7)  { animation-delay: 0.14s; }
+    .card:nth-child(8)  { animation-delay: 0.16s; }
+    .card:nth-child(9)  { animation-delay: 0.18s; }
+    .card:nth-child(10) { animation-delay: 0.20s; }
+    .chart-box:nth-child(1)  { animation-delay: 0.05s; }
+    .chart-box:nth-child(2)  { animation-delay: 0.10s; }
+    .chart-box:nth-child(3)  { animation-delay: 0.12s; }
+    .chart-box:nth-child(4)  { animation-delay: 0.14s; }
+    .chart-box:nth-child(5)  { animation-delay: 0.16s; }
+    .chart-box:nth-child(6)  { animation-delay: 0.18s; }
+    .chart-box:nth-child(7)  { animation-delay: 0.20s; }
+    .chart-box:nth-child(8)  { animation-delay: 0.22s; }
+    .chart-box:nth-child(9)  { animation-delay: 0.24s; }
+    .chart-box:nth-child(10) { animation-delay: 0.26s; }
+    .chart-box:nth-child(11) { animation-delay: 0.28s; }
+    .chart-box:nth-child(12) { animation-delay: 0.30s; }
+    .chart-box:nth-child(13) { animation-delay: 0.32s; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 1100px) {
+      .col-8  { grid-column: span 12; }
+      .col-7  { grid-column: span 12; }
+      .col-5  { grid-column: span 12; }
+      .col-4  { grid-column: span 12; }
+    }
+    @media (max-width: 680px) {
+      #dashboard { padding: 1rem; }
+      .col-6, .col-12 { grid-column: span 12; }
+      .charts-grid { gap: 0.75rem; }
+      .cards { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════ -->
+<header>
+  <div class="logo">N</div>
+  <h1>Meine Netflix Stats</h1>
+  <div class="header-right">
+    <span id="file-counter"></span>
+    <button id="reset-btn" onclick="resetApp()">↩ Neue Datei</button>
+  </div>
+</header>
+
+<!-- ══ UPLOAD ══════════════════════════════════════ -->
+<section id="upload-section">
+  <div class="upload-card" id="drop-zone"
+       onclick="document.getElementById('file-input').click()"
+       ondragover="handleDragOver(event)"
+       ondragleave="handleDragLeave(event)"
+       ondrop="handleDrop(event)">
+    <div class="upload-icon">🎬</div>
+    <h2>Deine Netflix-Stats</h2>
+    <p>
+      Lade deine persönliche Sehgeschichte hoch und entdecke<br>
+      detaillierte Statistiken über dein Streaming-Verhalten.<br><br>
+      <strong>So exportierst du:</strong> Netflix → Dein Konto →<br>
+      <code>Bestelldetails → Alle herunterladen</code><br><br>
+      Die Datei heißt <code>NetflixViewingHistory.csv</code>
+    </p>
+    <button class="btn-upload" type="button">
+      <span>▶</span> CSV hochladen
+    </button>
+    <p class="privacy-note">
+      <span>🔒</span> Alle Daten bleiben lokal in deinem Browser
+    </p>
+    <input type="file" id="file-input" accept=".csv" onchange="handleFile(event)" />
+  </div>
+</section>
+
+<!-- ══ DASHBOARD ═══════════════════════════════════ -->
+<main id="dashboard">
+
+  <div class="dash-header">
+    <h2>Deine Netflix-Statistiken</h2>
+    <span id="date-range-label"></span>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="cards">
+    <div class="card" style="--card-accent:#E50914">
+      <span class="card-icon">▶</span>
+      <div class="card-label">Gesamt Views</div>
+      <div class="card-value" id="stat-total-views">–</div>
+      <div class="card-sub">alle Wiedergaben</div>
+    </div>
+    <div class="card" style="--card-accent:#60a5fa">
+      <span class="card-icon">🎞</span>
+      <div class="card-label">Unique Titel</div>
+      <div class="card-value" id="stat-unique-titles">–</div>
+      <div class="card-sub" id="stat-unique-sub">Shows &amp; Filme</div>
+    </div>
+    <div class="card" style="--card-accent:#c084fc">
+      <span class="card-icon">📺</span>
+      <div class="card-label">TV-Serien</div>
+      <div class="card-value" id="stat-tv-count">–</div>
+      <div class="card-sub" id="stat-tv-sub">unique Serien</div>
+    </div>
+    <div class="card" style="--card-accent:#4ade80">
+      <span class="card-icon">🎬</span>
+      <div class="card-label">Filme</div>
+      <div class="card-value" id="stat-movie-count">–</div>
+      <div class="card-sub">unique Filme</div>
+    </div>
+    <div class="card" style="--card-accent:#fb923c">
+      <span class="card-icon">📅</span>
+      <div class="card-label">Aktive Tage</div>
+      <div class="card-value" id="stat-active-days">–</div>
+      <div class="card-sub">Tage mit Aktivität</div>
+    </div>
+    <div class="card" style="--card-accent:#f5a623">
+      <span class="card-icon">🔥</span>
+      <div class="card-label">Längste Streak</div>
+      <div class="card-value" id="stat-streak">–</div>
+      <div class="card-sub">konsekutive Tage</div>
+    </div>
+    <div class="card" style="--card-accent:#E50914">
+      <span class="card-icon">❤️</span>
+      <div class="card-label">Lieblingsserie</div>
+      <div class="card-value" id="stat-top-show-count">–</div>
+      <div class="card-sub" id="stat-top-show-name">Folgen</div>
+    </div>
+    <div class="card" style="--card-accent:#38bdf8">
+      <span class="card-icon">🎂</span>
+      <div class="card-label">Netflix seit</div>
+      <div class="card-value" id="stat-since">–</div>
+      <div class="card-sub" id="stat-since-sub">erstes Schauen</div>
+    </div>
+    <div class="card" style="--card-accent:#a78bfa">
+      <span class="card-icon">📆</span>
+      <div class="card-label">Lieblingstag</div>
+      <div class="card-value" id="stat-fav-day">–</div>
+      <div class="card-sub" id="stat-fav-day-sub">meiste Views</div>
+    </div>
+    <div class="card" style="--card-accent:#f87171">
+      <span class="card-icon">🍿</span>
+      <div class="card-label">Binge-Tage</div>
+      <div class="card-value" id="stat-binge-days">–</div>
+      <div class="card-sub">Tage mit 5+ Views</div>
+    </div>
+  </div>
+
+  <!-- CHARTS GRID -->
+  <div class="charts-grid">
+
+    <!-- 1. Monthly activity (full width) -->
+    <div class="chart-box col-12">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(229,9,20,0.12);color:#E50914">📈</div>
+        <h3>Monatliche Aktivität</h3>
+        <span class="sub">Views pro Monat</span>
+      </div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="chart-monthly"></canvas>
+      </div>
+    </div>
+
+    <!-- 2. Day of week -->
+    <div class="chart-box col-6">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(96,165,250,0.12);color:#60a5fa">📅</div>
+        <h3>Wochentag-Muster</h3>
+      </div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chart-dow"></canvas>
+      </div>
+    </div>
+
+    <!-- 3. Content type doughnut -->
+    <div class="chart-box col-6">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(192,132,252,0.12);color:#c084fc">🍩</div>
+        <h3>Content-Mix</h3>
+        <span class="sub">Serien vs. Filme</span>
+      </div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chart-content-type"></canvas>
+      </div>
+    </div>
+
+    <!-- 4. Top 15 shows (horizontal bar) -->
+    <div class="chart-box col-8">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(229,9,20,0.12);color:#E50914">🏆</div>
+        <h3>Top 15 Serien</h3>
+        <span class="sub">nach Episodenanzahl</span>
+      </div>
+      <div class="chart-wrap" style="height:370px">
+        <canvas id="chart-top-shows"></canvas>
+      </div>
+    </div>
+
+    <!-- 5. Top seasons breakdown -->
+    <div class="chart-box col-4">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(251,146,60,0.12);color:#fb923c">🎭</div>
+        <h3>Staffel-Rekorde</h3>
+        <span class="sub">meiste Staffeln</span>
+      </div>
+      <div id="seasons-breakdown" class="breakdown-wrap"></div>
+    </div>
+
+    <!-- 6. Year-over-year (full width) -->
+    <div class="chart-box col-12">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(74,222,128,0.12);color:#4ade80">📊</div>
+        <h3>Jahresvergleich</h3>
+        <span class="sub">Views pro Monat je Jahr (letzte 6 Jahre)</span>
+      </div>
+      <div class="chart-wrap" style="height:230px">
+        <canvas id="chart-yoy"></canvas>
+      </div>
+    </div>
+
+    <!-- 7. Heatmap (full width) -->
+    <div class="chart-box col-12">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(229,9,20,0.12);color:#E50914">🗓</div>
+        <h3>Aktivitäts-Heatmap</h3>
+        <span class="sub">letzte 365 Tage</span>
+      </div>
+      <div id="heatmap-month-labels" class="hm-month-labels"></div>
+      <div class="hm-outer">
+        <div class="hm-day-labels" id="hm-day-labels"></div>
+        <div class="heatmap-grid" id="heatmap-grid"></div>
+      </div>
+      <div class="hm-labels">
+        <span>Weniger</span>
+        <div class="hm-legend-cell" style="background:#1c1c1c"></div>
+        <div class="hm-legend-cell" style="background:rgba(229,9,20,0.2)"></div>
+        <div class="hm-legend-cell" style="background:rgba(229,9,20,0.4)"></div>
+        <div class="hm-legend-cell" style="background:rgba(229,9,20,0.65)"></div>
+        <div class="hm-legend-cell" style="background:#E50914"></div>
+        <span>Mehr</span>
+      </div>
+    </div>
+
+    <!-- 8. Binge analysis -->
+    <div class="chart-box col-6">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(251,146,60,0.12);color:#fb923c">🍿</div>
+        <h3>Binge-Analyse</h3>
+        <span class="sub">Folgen pro Tag</span>
+      </div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="chart-binge"></canvas>
+      </div>
+    </div>
+
+    <!-- 9. Monthly pattern (seasonal) -->
+    <div class="chart-box col-6">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(96,165,250,0.12);color:#60a5fa">🌊</div>
+        <h3>Saisonales Muster</h3>
+        <span class="sub">Ø Views je Kalendermonat</span>
+      </div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="chart-seasonal"></canvas>
+      </div>
+    </div>
+
+    <!-- 10. Most active days table -->
+    <div class="chart-box col-5">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(229,9,20,0.12);color:#E50914">⚡</div>
+        <h3>Aktivste Tage</h3>
+        <span class="sub">Top 10 Marathon-Tage</span>
+      </div>
+      <div id="table-active-days"></div>
+    </div>
+
+    <!-- 11. Top shows table (detail) -->
+    <div class="chart-box col-7">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(192,132,252,0.12);color:#c084fc">📋</div>
+        <h3>Top Serien – Details</h3>
+        <span class="sub">Folgen, Staffeln, letzter Blick</span>
+      </div>
+      <div id="table-top-shows"></div>
+    </div>
+
+    <!-- 12. Rewatches table -->
+    <div class="chart-box col-6">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(74,222,128,0.12);color:#4ade80">🔁</div>
+        <h3>Rewatches</h3>
+        <span class="sub">mehrfach geschaute Inhalte</span>
+      </div>
+      <div id="table-rewatches"></div>
+    </div>
+
+    <!-- 13. This year overview -->
+    <div class="chart-box col-6">
+      <div class="chart-title">
+        <div class="chart-title-icon" style="background:rgba(245,166,35,0.12);color:#f5a623">🆕</div>
+        <h3 id="this-year-title">Dieses Jahr</h3>
+        <span class="sub">neu gestartete Serien</span>
+      </div>
+      <div id="table-this-year"></div>
+    </div>
+
+  </div><!-- .charts-grid -->
+</main>
+
+<script>
+// ════════════════════════════════════════════════
+//  CONSTANTS & UTILITIES
+// ════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const DAYS_DE = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+const charts = {};
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+// ── Chart defaults ──────────────────────────────
+const BASE = {
+  color: '#f0f0f0',
+  plugins: {
+    legend: { labels: { color: '#555', font: { size: 11, family: 'Inter' }, boxWidth: 12 } },
+    tooltip: {
+      backgroundColor: '#181818',
+      titleColor: '#E50914',
+      bodyColor: '#ccc',
+      borderColor: 'rgba(255,255,255,0.08)',
+      borderWidth: 1,
+      padding: 10,
+      cornerRadius: 8,
+    }
+  },
+  scales: {
+    x: { ticks: { color: '#444', font: { size: 10, family: 'Inter' } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+    y: { ticks: { color: '#444', font: { size: 10, family: 'Inter' } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+  }
+};
+
+function mergeDeep(t, s) {
+  for (const k of Object.keys(s)) {
+    if (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) {
+      if (!t[k]) t[k] = {};
+      mergeDeep(t[k], s[k]);
+    } else { t[k] = s[k]; }
+  }
+  return t;
+}
+function opts(extra = {}) {
+  return mergeDeep(JSON.parse(JSON.stringify(BASE)), extra);
+}
+
+const PALETTE = [
+  '#E50914','#60a5fa','#c084fc','#4ade80','#fb923c',
+  '#f472b6','#38bdf8','#a78bfa','#34d399','#fbbf24',
+  '#86efac','#fca5a5','#93c5fd','#d8b4fe','#fdba74'
+];
+
+// ════════════════════════════════════════════════
+//  TITLE PARSING
+// ════════════════════════════════════════════════
+function parseTitle(raw) {
+  const tvFull = raw.match(/^(.+?):\s*(?:Season|Staffel)\s*(\d+):\s*(.+)$/i);
+  if (tvFull) return { type: 'tv', show: tvFull[1].trim(), season: parseInt(tvFull[2]), episode: tvFull[3].trim() };
+  const colonMatch = raw.match(/^(.+?):\s*(.+)$/);
+  if (colonMatch) return { type: 'tv', show: colonMatch[1].trim(), season: 1, episode: colonMatch[2].trim() };
+  return { type: 'movie', show: raw.trim(), season: null, episode: null };
+}
+
+function parseNetflixDate(str) {
+  if (!str) return null;
+  const parts = str.trim().split('/');
+  if (parts.length !== 3) return null;
+  const [m, d, y] = parts.map(Number);
+  if (isNaN(m) || isNaN(d) || isNaN(y)) return null;
+  const date = new Date(2000 + y, m - 1, d);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ════════════════════════════════════════════════
+//  ANALYTICS
+// ════════════════════════════════════════════════
+function computeStats(rows) {
+  const showMap = {};
+  rows.forEach(r => {
+    if (!showMap[r.show]) showMap[r.show] = { episodes: [], seasons: new Set(), type: r.type, lastDate: r.date };
+    showMap[r.show].episodes.push(r);
+    if (r.season) showMap[r.show].seasons.add(r.season);
+    if (r.date > showMap[r.show].lastDate) showMap[r.show].lastDate = r.date;
+  });
+
+  const dayMap = {};
+  rows.forEach(r => { const k = dateKey(r.date); dayMap[k] = (dayMap[k] || 0) + 1; });
+
+  const streak = longestStreak(Object.keys(dayMap).sort());
+
+  const bingeDay = Object.entries(dayMap).sort((a, b) => b[1] - a[1])[0] || ['–', 0];
+
+  const topShow = Object.entries(showMap)
+    .filter(([, v]) => v.type === 'tv')
+    .sort((a, b) => b[1].episodes.length - a[1].episodes.length)[0]
+    || Object.entries(showMap).sort((a, b) => b[1].episodes.length - a[1].episodes.length)[0];
+
+  const rawCounts = {};
+  rows.forEach(r => { rawCounts[r.raw] = (rawCounts[r.raw] || 0) + 1; });
+  const rewatches = Object.entries(rawCounts).filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]);
+
+  const dowCounts = Array(7).fill(0);
+  rows.forEach(r => dowCounts[r.date.getDay()]++);
+
+  const monthlyMap = {};
+  rows.forEach(r => {
+    const k = `${r.date.getFullYear()}-${String(r.date.getMonth()+1).padStart(2,'0')}`;
+    monthlyMap[k] = (monthlyMap[k] || 0) + 1;
+  });
+
+  const yearMap = {};
+  rows.forEach(r => { const y = r.date.getFullYear(); yearMap[y] = (yearMap[y] || 0) + 1; });
+
+  const monthTotals = Array(12).fill(0);
+  const monthYearSets = Array.from({ length: 12 }, () => new Set());
+  rows.forEach(r => {
+    const mo = r.date.getMonth();
+    monthTotals[mo]++;
+    monthYearSets[mo].add(r.date.getFullYear());
+  });
+  const monthAvg = monthTotals.map((total, i) => monthYearSets[i].size ? +(total / monthYearSets[i].size).toFixed(1) : 0);
+
+  const bingeBuckets = { '1': 0, '2–3': 0, '4–6': 0, '7–10': 0, '11+': 0 };
+  Object.values(dayMap).forEach(c => {
+    if      (c === 1)  bingeBuckets['1']++;
+    else if (c <= 3)   bingeBuckets['2–3']++;
+    else if (c <= 6)   bingeBuckets['4–6']++;
+    else if (c <= 10)  bingeBuckets['7–10']++;
+    else               bingeBuckets['11+']++;
+  });
+
+  const currentYear = new Date().getFullYear();
+  const thisYearMap = {};
+  rows.filter(r => r.date.getFullYear() === currentYear && r.type === 'tv').forEach(r => {
+    if (!thisYearMap[r.show]) thisYearMap[r.show] = { count: 0, firstDate: r.date };
+    thisYearMap[r.show].count++;
+    if (r.date < thisYearMap[r.show].firstDate) thisYearMap[r.show].firstDate = r.date;
+  });
+
+  const bingeDaysCount = Object.values(dayMap).filter(c => c >= 5).length;
+
+  return { showMap, dayMap, streak, bingeDay, topShow, rewatches, dowCounts,
+           monthlyMap, yearMap, monthAvg, bingeBuckets, thisYearMap, rawCounts, bingeDaysCount };
+}
+
+function longestStreak(sortedDateStrs) {
+  if (!sortedDateStrs.length) return 0;
+  let maxStreak = 1, cur = 1;
+  for (let i = 1; i < sortedDateStrs.length; i++) {
+    const prev = new Date(sortedDateStrs[i - 1]);
+    const curr = new Date(sortedDateStrs[i]);
+    const diff = (curr - prev) / 86400000;
+    if (diff === 1)    { cur++; if (cur > maxStreak) maxStreak = cur; }
+    else if (diff > 1) { cur = 1; }
+  }
+  return maxStreak;
+}
+
+// ════════════════════════════════════════════════
+//  KPI RENDER
+// ════════════════════════════════════════════════
+function renderKPIs(rows, stats) {
+  $('stat-total-views').textContent = rows.length.toLocaleString('de');
+
+  const uniqueTitles = new Set(rows.map(r => r.show)).size;
+  $('stat-unique-titles').textContent = uniqueTitles.toLocaleString('de');
+
+  const tvShows = Object.entries(stats.showMap).filter(([, v]) => v.type === 'tv');
+  const movies  = Object.entries(stats.showMap).filter(([, v]) => v.type === 'movie');
+  $('stat-tv-count').textContent = tvShows.length.toLocaleString('de');
+  $('stat-tv-sub').textContent = `unique Serien`;
+  $('stat-movie-count').textContent = movies.length.toLocaleString('de');
+
+  $('stat-active-days').textContent = Object.keys(stats.dayMap).length.toLocaleString('de');
+  $('stat-streak').textContent = `${stats.streak}`;
+
+  if (stats.topShow) {
+    const [name, data] = stats.topShow;
+    $('stat-top-show-count').textContent = data.episodes.length;
+    const shortName = name.length > 20 ? name.slice(0, 20) + '…' : name;
+    $('stat-top-show-name').textContent = shortName;
+  }
+
+  const allDates = rows.map(r => r.date).sort((a, b) => a - b);
+  const firstDate = allDates[0];
+  const yearsAgo  = new Date().getFullYear() - firstDate.getFullYear();
+  $('stat-since').textContent = firstDate.getFullYear();
+  $('stat-since-sub').textContent = yearsAgo > 0 ? `vor ${yearsAgo} Jahr${yearsAgo > 1 ? 'en' : ''}` : 'dieses Jahr';
+
+  const favDow = stats.dowCounts.indexOf(Math.max(...stats.dowCounts));
+  const dowNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+  $('stat-fav-day').textContent = DAYS_DE[favDow];
+  $('stat-fav-day-sub').textContent = `${stats.dowCounts[favDow].toLocaleString('de')} Views`;
+
+  $('stat-binge-days').textContent = stats.bingeDaysCount.toLocaleString('de');
+
+  const fmt = d => d.toLocaleDateString('de-DE', { month: 'short', year: 'numeric' });
+  $('date-range-label').textContent = `${fmt(firstDate)} – ${fmt(allDates[allDates.length-1])}`;
+
+  $('file-counter').textContent = `${rows.length.toLocaleString('de')} Views`;
+  $('file-counter').style.display = 'inline';
+
+  $('this-year-title').textContent = `${new Date().getFullYear()} – Neue Serien`;
+}
+
+// ════════════════════════════════════════════════
+//  CHART 1 – Monthly Activity
+// ════════════════════════════════════════════════
+function renderMonthlyActivity(stats) {
+  destroyChart('monthly');
+  const sorted = Object.entries(stats.monthlyMap).sort(([a], [b]) => a.localeCompare(b));
+  const labels = sorted.map(([k]) => {
+    const [y, m] = k.split('-');
+    return `${MONTHS[parseInt(m)-1]} ${y}`;
+  });
+  const data = sorted.map(([, v]) => v);
+
+  charts['monthly'] = new Chart($('chart-monthly').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: 'rgba(229,9,20,0.7)',
+        hoverBackgroundColor: '#E50914',
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: t => t[0].label,
+          label: t => ` ${t.raw} Views`
+        }}
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 18, maxRotation: 45 } },
+        y: { beginAtZero: true }
+      }
+    })
+  });
+}
+
+// ════════════════════════════════════════════════
+//  CHART 2 – Day of Week
+// ════════════════════════════════════════════════
+function renderDayOfWeek(stats) {
+  destroyChart('dow');
+  // reorder Mon–Sun (1=Mo … 6=Sa, 0=So → put So last)
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const labels = order.map(i => dowNames[i]);
+  const data   = order.map(i => stats.dowCounts[i]);
+  const max    = Math.max(...data);
+
+  charts['dow'] = new Chart($('chart-dow').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: data.map(v => v === max ? '#E50914' : 'rgba(229,9,20,0.3)'),
+        hoverBackgroundColor: '#E50914',
+        borderRadius: 7,
+        borderSkipped: false,
+      }]
+    },
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: t => ` ${t.raw} Views` } }
+      },
+      scales: { y: { beginAtZero: true } }
+    })
+  });
+}
+
+// ════════════════════════════════════════════════
+//  CHART 3 – Content Type Doughnut
+// ════════════════════════════════════════════════
+function renderContentType(stats) {
+  destroyChart('content-type');
+  const tvCount    = Object.values(stats.showMap).filter(s => s.type === 'tv').length;
+  const movieCount = Object.values(stats.showMap).filter(s => s.type === 'movie').length;
+  const tvViews    = Object.values(stats.showMap).filter(s => s.type === 'tv').reduce((s, v) => s + v.episodes.length, 0);
+  const movieViews = Object.values(stats.showMap).filter(s => s.type === 'movie').reduce((s, v) => s + v.episodes.length, 0);
+
+  charts['content-type'] = new Chart($('chart-content-type').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: [`TV-Serien (${tvCount})`, `Filme (${movieCount})`],
+      datasets: [{
+        data: [tvViews, movieViews],
+        backgroundColor: ['#E50914','#60a5fa'],
+        borderColor: '#111',
+        borderWidth: 3,
+        hoverOffset: 8,
+      }]
+    },
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'right', labels: { color: '#888', padding: 16 } },
+        tooltip: { callbacks: { label: t => ` ${t.raw.toLocaleString('de')} Views` } }
+      }
+    })
+  });
+}
+
+// ════════════════════════════════════════════════
+//  CHART 4 – Top 15 Shows
+// ════════════════════════════════════════════════
+function renderTopShows(stats) {
+  destroyChart('top-shows');
+  const top15 = Object.entries(stats.showMap)
+    .filter(([, v]) => v.type === 'tv')
+    .sort((a, b) => b[1].episodes.length - a[1].episodes.length)
+    .slice(0, 15);
+
+  const labels = top15.map(([name]) => name.length > 28 ? name.slice(0, 28) + '…' : name);
+  const data   = top15.map(([, v]) => v.episodes.length);
+  const max    = data[0] || 1;
+  const bgs    = data.map((v, i) => {
+    const alpha = 0.35 + (1 - i / top15.length) * 0.65;
+    return `rgba(229,9,20,${alpha.toFixed(2)})`;
+  });
+
+  charts['top-shows'] = new Chart($('chart-top-shows').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: bgs,
+        hoverBackgroundColor: '#E50914',
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: opts({
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: t => ` ${t.raw} Folgen` } }
+      },
+      scales: {
+        x: { beginAtZero: true },
+        y: { ticks: { font: { size: 10 } } }
+      }
+    })
+  });
+}
+
+// ════════════════════════════════════════════════
+//  BREAKDOWN – Season Records
+// ════════════════════════════════════════════════
+function renderSeasonBreakdown(stats) {
+  const top = Object.entries(stats.showMap)
+    .filter(([, v]) => v.type === 'tv' && v.seasons.size > 0)
+    .sort((a, b) => b[1].seasons.size - a[1].seasons.size)
+    .slice(0, 10);
+
+  const max = top[0]?.[1].seasons.size || 1;
+  const container = $('seasons-breakdown');
+  container.innerHTML = '';
+  top.forEach(([name, data]) => {
+    const s = data.seasons.size;
+    const label = name.length > 18 ? name.slice(0, 18) + '…' : name;
+    container.insertAdjacentHTML('beforeend', `
+      <div class="breakdown-row">
+        <div class="breakdown-label" title="${name}">${label}</div>
+        <div class="breakdown-bar-bg">
+          <div class="breakdown-bar-fill" style="width:${(s/max*100).toFixed(1)}%;background:#fb923c"></div>
+        </div>
+        <div class="breakdown-val">${s}</div>
+      </div>`);
+  });
+}
+
+// ════════════════════════════════════════════════
+//  CHART 5 – Year-over-Year
+// ════════════════════════════════════════════════
+function renderYearOverYear(rows) {
+  destroyChart('yoy');
+  const allYears = [...new Set(rows.map(r => r.date.getFullYear()))].sort();
+  const displayYears = allYears.slice(-6);
+
+  const datasets = displayYears.map((year, i) => {
+    const monthly = Array(12).fill(0);
+    rows.filter(r => r.date.getFullYear() === year).forEach(r => monthly[r.date.getMonth()]++);
+    const alpha = +(0.3 + (i / Math.max(displayYears.length - 1, 1)) * 0.7).toFixed(2);
+    return {
+      label: String(year),
+      data: monthly,
+      backgroundColor: `rgba(229,9,20,${alpha})`,
+      borderRadius: 4,
+      borderSkipped: false,
+    };
+  });
+
+  charts['yoy'] = new Chart($('chart-yoy').getContext('2d'), {
+    type: 'bar',
+    data: { labels: MONTHS, datasets },
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'top' } },
+      scales: { x: {}, y: { beginAtZero: true } }
+    })
+  });
+}
+
+// ════════════════════════════════════════════════
+//  HEATMAP
+// ════════════════════════════════════════════════
+function heatColor(v) {
+  if (!v)   return '#1c1c1c';
+  if (v === 1) return 'rgba(229,9,20,0.2)';
+  if (v <= 3)  return 'rgba(229,9,20,0.4)';
+  if (v <= 6)  return 'rgba(229,9,20,0.65)';
+  return '#E50914';
+}
+
+function renderHeatmap(stats) {
+  const today  = new Date();
+  const start  = new Date(today);
+  start.setDate(start.getDate() - 364);
+  start.setDate(start.getDate() - start.getDay()); // align to Sunday
+
+  const grid      = $('heatmap-grid');
+  const monthLbls = $('heatmap-month-labels');
+  const dayLbls   = $('hm-day-labels');
+  grid.innerHTML = monthLbls.innerHTML = dayLbls.innerHTML = '';
+
+  // Day labels (Mo, Mi, Fr)
+  ['Mo', '', 'Mi', '', 'Fr', '', ''].forEach(label => {
+    dayLbls.insertAdjacentHTML('beforeend', `<div class="hm-day-label">${label}</div>`);
+  });
+
+  let cur        = new Date(start);
+  let colIdx     = 0;
+  let lastMonth  = -1;
+  const monthPositions = [];
+
+  while (cur <= today) {
+    const col = document.createElement('div');
+    col.className = 'hm-col';
+
+    for (let dow = 0; dow < 7; dow++) {
+      const cell = document.createElement('div');
+      cell.className = 'hm-cell';
+      const k = dateKey(cur);
+      const v = stats.dayMap[k] || 0;
+      cell.style.background = heatColor(v);
+      if (v) {
+        const fmtDate = cur.toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
+        cell.title = `${fmtDate}: ${v} View${v > 1 ? 's' : ''}`;
+      }
+      col.appendChild(cell);
+
+      const mo = cur.getMonth();
+      if (mo !== lastMonth && dow === 0) {
+        monthPositions.push({ col: colIdx, month: mo });
+        lastMonth = mo;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    grid.appendChild(col);
+    colIdx++;
+  }
+
+  // Month labels
+  const totalCols = colIdx;
+  monthPositions.forEach(({ col, month }, i) => {
+    const next   = monthPositions[i + 1]?.col ?? totalCols;
+    const width  = (next - col) * 16 + 'px';
+    monthLbls.insertAdjacentHTML('beforeend', `<div class="hm-month-label" style="min-width:${width}">${MONTHS[month]}</div>`);
+  });
+}
+
+// ════════════════════════════════════════════════
+//  CHART 6 – Binge Analysis
+// ════════════════════════════════════════════════
+function renderBingeAnalysis(stats) {
+  destroyChart('binge');
+  const labels = Object.keys(stats.bingeBuckets);
+  const data   = Object.values(stats.bingeBuckets);
+  const colors = ['#60a5fa','#c084fc','#fb923c','#E50914','#f87171'];
+
+  charts['binge'] = new Chart($('chart-binge').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderRadius: 8,
+        borderSkipped: false,
+      }]
+    },
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: t => `${t[0].label} Folgen/Tag`,
+          label: t => ` ${t.raw} Tage`
+        }}
+      },
+      scales: {
+        x: { title: { display: true, text: 'Folgen pro Tag', color: '#555', font: { size: 10 } } },
+        y: { beginAtZero: true }
+      }
+    })
+  });
+}
+
+// ════════════════════════════════════════════════
+//  CHART 7 – Seasonal Pattern
+// ════════════════════════════════════════════════
+function renderSeasonalPattern(stats) {
+  destroyChart('seasonal');
+  charts['seasonal'] = new Chart($('chart-seasonal').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: MONTHS,
+      datasets: [{
+        data: stats.monthAvg,
+        backgroundColor: MONTHS.map((_, i) => {
+          const v = stats.monthAvg[i];
+          const max = Math.max(...stats.monthAvg) || 1;
+          const alpha = 0.25 + (v / max) * 0.65;
+          return `rgba(96,165,250,${alpha.toFixed(2)})`;
+        }),
+        hoverBackgroundColor: '#60a5fa',
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: opts({
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: t => t[0].label,
+          label: t => ` Ø ${t.raw} Views`
+        }}
+      },
+      scales: { y: { beginAtZero: true } }
+    })
+  });
+}
+
+// ════════════════════════════════════════════════
+//  TABLE – Most Active Days
+// ════════════════════════════════════════════════
+function renderActiveDays(stats) {
+  const top10 = Object.entries(stats.dayMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const container = $('table-active-days');
+  if (!top10.length) { container.innerHTML = '<div class="empty-state">Keine Daten</div>'; return; }
+
+  const rows = top10.map(([k, v], i) => {
+    const d    = new Date(k);
+    const fmt  = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+    const c    = v >= 10 ? 'badge-red' : v >= 5 ? 'badge-orange' : 'badge-gray';
+    return `<tr>
+      <td class="rank-cell">#${i+1}</td>
+      <td class="title-cell" style="max-width:140px" title="${fmt}">${fmt}</td>
+      <td style="text-align:right"><span class="badge ${c}">${v} Views</span></td>
+    </tr>`;
+  });
+
+  container.innerHTML = `<table class="list-table">
+    <thead><tr><th>#</th><th>Datum</th><th style="text-align:right">Views</th></tr></thead>
+    <tbody>${rows.join('')}</tbody>
+  </table>`;
+}
+
+// ════════════════════════════════════════════════
+//  TABLE – Top Shows Detail
+// ════════════════════════════════════════════════
+function renderTopShowsTable(stats) {
+  const top = Object.entries(stats.showMap)
+    .filter(([, v]) => v.type === 'tv')
+    .sort((a, b) => b[1].episodes.length - a[1].episodes.length)
+    .slice(0, 12);
+
+  const container = $('table-top-shows');
+  if (!top.length) { container.innerHTML = '<div class="empty-state">Keine TV-Serien gefunden</div>'; return; }
+
+  const rows = top.map(([name, data], i) => {
+    const eps  = data.episodes.length;
+    const seas = data.seasons.size;
+    const last = data.lastDate.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
+    const seasBadge = seas > 0 ? `<span class="badge badge-purple">${seas} Staffel${seas>1?'n':''}</span>` : '';
+    return `<tr>
+      <td class="rank-cell">#${i+1}</td>
+      <td class="title-cell" style="max-width:160px" title="${name}">${name}</td>
+      <td style="text-align:right;font-weight:700">${eps}</td>
+      <td>${seasBadge}</td>
+      <td style="color:#555;font-size:0.72rem">${last}</td>
+    </tr>`;
+  });
+
+  container.innerHTML = `<table class="list-table">
+    <thead><tr><th>#</th><th>Serie</th><th style="text-align:right">Eps</th><th>Staffeln</th><th>Letzter Blick</th></tr></thead>
+    <tbody>${rows.join('')}</tbody>
+  </table>`;
+}
+
+// ════════════════════════════════════════════════
+//  TABLE – Rewatches
+// ════════════════════════════════════════════════
+function renderRewatches(stats) {
+  const container = $('table-rewatches');
+  const top = stats.rewatches.slice(0, 12);
+
+  if (!top.length) {
+    container.innerHTML = '<div class="empty-state">Keine Wiederholungen gefunden 🎉</div>';
+    return;
+  }
+
+  const rows = top.map(([title, count]) => {
+    const short = title.length > 38 ? title.slice(0, 38) + '…' : title;
+    const c = count >= 5 ? 'badge-red' : 'badge-orange';
+    return `<tr>
+      <td class="title-cell" style="max-width:220px" title="${title}">${short}</td>
+      <td style="text-align:right"><span class="badge ${c}">${count}×</span></td>
+    </tr>`;
+  });
+
+  container.innerHTML = `<table class="list-table">
+    <thead><tr><th>Titel</th><th style="text-align:right">Gesehen</th></tr></thead>
+    <tbody>${rows.join('')}</tbody>
+  </table>`;
+}
+
+// ════════════════════════════════════════════════
+//  TABLE – This Year's New Shows
+// ════════════════════════════════════════════════
+function renderThisYear(stats) {
+  const container = $('table-this-year');
+  const entries = Object.entries(stats.thisYearMap)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 12);
+
+  if (!entries.length) {
+    container.innerHTML = '<div class="empty-state">Noch keine Aktivität dieses Jahr</div>';
+    return;
+  }
+
+  const rows = entries.map(([name, data]) => {
+    const fmt  = data.firstDate.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+    const short = name.length > 24 ? name.slice(0, 24) + '…' : name;
+    return `<tr>
+      <td class="title-cell" style="max-width:160px" title="${name}">${short}</td>
+      <td style="color:#555;font-size:0.72rem">ab ${fmt}</td>
+      <td style="text-align:right;font-weight:600">${data.count} Eps</td>
+    </tr>`;
+  });
+
+  container.innerHTML = `<table class="list-table">
+    <thead><tr><th>Serie</th><th>Start</th><th style="text-align:right">Folgen</th></tr></thead>
+    <tbody>${rows.join('')}</tbody>
+  </table>`;
+}
+
+// ════════════════════════════════════════════════
+//  MAIN RENDER
+// ════════════════════════════════════════════════
+const dowNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+
+function renderDashboard(rows) {
+  const stats = computeStats(rows);
+
+  $('upload-section').style.display = 'none';
+  $('dashboard').style.display = 'block';
+  $('reset-btn').style.display = 'flex';
+
+  renderKPIs(rows, stats);
+  renderMonthlyActivity(stats);
+  renderDayOfWeek(stats);
+  renderContentType(stats);
+  renderTopShows(stats);
+  renderSeasonBreakdown(stats);
+  renderYearOverYear(rows);
+  renderHeatmap(stats);
+  renderBingeAnalysis(stats);
+  renderSeasonalPattern(stats);
+  renderActiveDays(stats);
+  renderTopShowsTable(stats);
+  renderRewatches(stats);
+  renderThisYear(stats);
+}
+
+// ════════════════════════════════════════════════
+//  FILE HANDLING
+// ════════════════════════════════════════════════
+function loadCSV(file) {
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete(res) {
+      const fields = res.meta.fields || [];
+      const titleField = fields.find(f => /title/i.test(f));
+      const dateField  = fields.find(f => /date/i.test(f));
+
+      if (!titleField || !dateField) {
+        alert('Spalten "Title" und "Date" nicht gefunden.\nBitte die offizielle NetflixViewingHistory.csv verwenden.');
+        return;
+      }
+
+      const rows = res.data
+        .filter(r => r[titleField] && r[dateField])
+        .map(r => {
+          const parsed = parseTitle(r[titleField]);
+          const date   = parseNetflixDate(r[dateField]);
+          return { raw: r[titleField], date, ...parsed };
+        })
+        .filter(r => r.date && !isNaN(r.date) && r.date <= new Date());
+
+      if (!rows.length) {
+        alert('Keine gültigen Daten gefunden. Bitte überprüfe das Dateiformat.');
+        return;
+      }
+
+      renderDashboard(rows);
+    },
+    error: err => alert('Fehler beim Lesen der Datei: ' + err.message)
+  });
+}
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (file) loadCSV(file);
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  $('drop-zone').classList.add('dragover');
+}
+
+function handleDragLeave(e) {
+  $('drop-zone').classList.remove('dragover');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  $('drop-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) loadCSV(file);
+}
+
+function resetApp() {
+  Object.keys(charts).forEach(id => destroyChart(id));
+  $('dashboard').style.display = 'none';
+  $('upload-section').style.display = 'flex';
+  $('reset-btn').style.display = 'none';
+  $('file-counter').style.display = 'none';
+  $('file-input').value = '';
+}
+</script>
+</body>
+</html>
