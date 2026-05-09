@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cinema Stats">
+<meta name="theme-color" content="#0a0a12">
+<meta name="format-detection" content="telephone=no">
+<meta name="color-scheme" content="dark">
+<title>Cinema Stats — Filme & Serien</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+:root {
+  --bg:#0a0a12;--bg2:#0f0f1a;--bg3:#141422;--bg4:#1a1a2e;
+  --card:rgba(20,20,35,0.85);--card2:rgba(25,25,45,0.7);
+  --border:rgba(245,158,11,0.12);--border2:rgba(245,158,11,0.25);--border3:rgba(245,158,11,0.5);
+  --text:#f0ece0;--text2:rgba(240,236,224,0.65);--text3:rgba(240,236,224,0.35);
+  --gold:#f59e0b;--gold2:#fbbf24;--gold3:rgba(245,158,11,0.08);
+  --red:#dc2626;--red2:#ef4444;--red3:rgba(220,38,38,0.12);
+  --teal:#14b8a6;--teal2:#2dd4bf;--teal3:rgba(20,184,166,0.12);
+  --green:#22c55e;--err:#ef4444;
+  --serif:'Playfair Display',Georgia,serif;
+  --mono:'Space Mono',monospace;
+  --sans:'Inter',system-ui,sans-serif;
+  --r:12px;--rl:20px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.6;
+  background-image:
+    repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(245,158,11,0.012) 3px,rgba(245,158,11,0.012) 4px),
+    radial-gradient(ellipse at 15% 15%,rgba(220,38,38,0.07) 0%,transparent 50%),
+    radial-gradient(ellipse at 85% 80%,rgba(20,184,166,0.05) 0%,transparent 50%),
+    radial-gradient(ellipse at 50% 50%,rgba(245,158,11,0.03) 0%,transparent 60%);
+  background-attachment:fixed;min-height:100vh;
+}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--bg2);}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--gold),var(--red));border-radius:2px;}
+.wrap{max-width:1140px;margin:0 auto;padding:0 24px;}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;background:rgba(10,10,18,0.88);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border-bottom:1px solid rgba(245,158,11,0.1);border-top:3px solid var(--gold);padding:11px 0;box-shadow:0 1px 0 rgba(245,158,11,0.06),0 4px 24px rgba(0,0,0,0.4);}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.nav-logo{font-family:var(--serif);font-size:14px;color:var(--gold);letter-spacing:0.03em;text-decoration:none;display:flex;align-items:center;gap:8px;}
+.nav-logo span{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;}
+.nav-links{display:flex;gap:2px;flex-wrap:wrap;}
+.nav-links a{font-size:12px;color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:7px;font-family:var(--mono);transition:all .2s;}
+.nav-links a:hover{color:var(--gold);background:var(--gold3);}
+.nav-links a.music-link{border:1px solid rgba(245,158,11,0.2);}
+.nav-links a.music-link:hover{border-color:var(--border2);}
+.nav-right{display:flex;gap:8px;align-items:center;}
+.sync-nav-btn{font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--gold);cursor:pointer;transition:all .2s;letter-spacing:0.05em;}
+.sync-nav-btn:hover{background:var(--gold3);border-color:var(--border3);box-shadow:0 0 12px rgba(245,158,11,0.2);}
+@media(max-width:520px){
+  .nav-links a{font-size:11px;padding:4px 7px;}
+}
+
+/* SYNC BANNER */
+#sync-banner{position:sticky;top:49px;z-index:190;width:100%;padding:0;max-height:0;overflow:hidden;transition:max-height .4s ease,padding .4s ease;}
+#sync-banner.visible{max-height:48px;padding:6px 0;}
+.sync-banner-inner{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;padding:8px 16px;border-radius:var(--r);border:1px solid var(--border2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.sync-banner-inner.syncing{background:rgba(20,20,35,0.9);border-color:rgba(245,158,11,0.3);color:var(--gold);}
+.sync-banner-inner.done-new{background:rgba(20,35,20,0.9);border-color:rgba(34,197,94,0.35);color:#4ade80;}
+.sync-banner-inner.done-ok{background:rgba(20,20,35,0.9);border-color:rgba(245,158,11,0.2);color:var(--text3);}
+.sync-banner-inner.err{background:rgba(35,10,10,0.9);border-color:rgba(239,68,68,0.35);color:#fca5a5;}
+.sync-spinner{width:12px;height:12px;border:2px solid rgba(245,158,11,0.3);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0;display:none;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.sync-bar-wrap{flex:1;height:3px;background:rgba(245,158,11,0.15);border-radius:2px;overflow:hidden;display:none;}
+.sync-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--teal));border-radius:2px;transition:width .3s ease;}
+
+/* HERO / TICKET */
+.hero-wrap{padding:56px 0 40px;}
+.hero-ticket{
+  display:flex;background:var(--card);border:1px solid var(--border2);border-radius:var(--rl);overflow:hidden;
+  box-shadow:0 0 0 1px rgba(245,158,11,0.05),0 20px 60px rgba(0,0,0,0.6),inset 0 1px 0 rgba(245,158,11,0.08);
+  position:relative;
+}
+.hero-ticket::after{
+  content:'';position:absolute;left:100px;top:12px;bottom:12px;width:1px;
+  background:repeating-linear-gradient(180deg,rgba(245,158,11,0.25) 0,rgba(245,158,11,0.25) 5px,transparent 5px,transparent 10px);
+  pointer-events:none;
+}
+.ticket-stub{
+  width:100px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px 10px;gap:8px;
+}
+.ticket-admit{font-family:var(--mono);font-size:9px;letter-spacing:0.35em;color:var(--gold);text-transform:uppercase;writing-mode:vertical-rl;transform:rotate(180deg);}
+.ticket-cinema{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.1em;}
+.ticket-main{flex:1;padding:36px 40px;}
+.hero-title{font-family:var(--serif);font-size:13px;color:var(--gold);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;opacity:0.7;}
+.hero-name{font-family:var(--serif);font-size:32px;font-weight:600;color:var(--text);margin-bottom:28px;letter-spacing:-0.01em;}
+.hero-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;}
+.hero-stat{display:flex;flex-direction:column;gap:4px;}
+.hero-stat-val{font-family:var(--serif);font-size:36px;font-weight:700;color:var(--text);line-height:1;}
+.hero-stat-val.gold{color:var(--gold);}
+.hero-stat-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.15em;text-transform:uppercase;}
+.ticket-right{width:90px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:20px 12px;border-left:none;}
+.ticket-badge{font-family:var(--mono);font-size:8px;letter-spacing:0.2em;text-transform:uppercase;padding:4px 8px;border:1px solid var(--border2);border-radius:4px;color:var(--gold);}
+.film-holes{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.film-hole{width:10px;height:10px;border-radius:50%;border:1px solid var(--border2);}
+@media(max-width:800px){
+  .hero-ticket{flex-direction:column;}
+  .hero-ticket::after{display:none;}
+  .ticket-stub{width:100%;flex-direction:row;writing-mode:horizontal-tb;padding:14px 24px;border-bottom:1px dashed var(--border);}
+  .ticket-admit{writing-mode:horizontal-tb;transform:none;}
+  .ticket-right{display:none;}
+  .ticket-main{padding:24px;}
+  .hero-stats-grid{grid-template-columns:repeat(2,1fr);}
+  .hero-stat-val{font-size:28px;}
+}
+
+/* FILM STRIP DIVIDER */
+.film-strip{height:18px;background:repeating-linear-gradient(90deg,var(--bg3) 0,var(--bg3) 14px,var(--bg) 14px,var(--bg) 18px);border-top:1px solid var(--border);border-bottom:1px solid var(--border);opacity:0.4;margin:8px 0;}
+
+/* SECTIONS */
+section{padding:48px 0;}
+section.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease;}
+section.reveal.visible{opacity:1;transform:none;}
+.sec-kicker{font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.25em;text-transform:uppercase;margin-bottom:8px;opacity:0.8;}
+.sec-title{font-family:var(--serif);font-size:26px;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:-0.01em;}
+.sec-sub{font-size:13px;color:var(--text3);margin-bottom:28px;font-family:var(--mono);}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:inset 0 1px 0 rgba(245,158,11,0.06),0 8px 32px rgba(0,0,0,0.4);transition:border-color .25s,box-shadow .25s;}
+.card:hover{border-color:var(--border2);box-shadow:inset 0 1px 0 rgba(245,158,11,0.12),0 0 0 1px rgba(245,158,11,0.06),0 8px 40px rgba(0,0,0,0.5);}
+.card-pad{padding:24px;}
+
+/* METRIC CARDS */
+.mc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:0;}
+.mc{background:var(--gold3);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;transition:all .25s;cursor:default;}
+.mc:hover{border-color:var(--gold);box-shadow:0 0 20px rgba(245,158,11,0.1);}
+.mc-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;}
+.mc-val{font-family:var(--serif);font-size:26px;color:var(--text);line-height:1;}
+.mc-val.gold{color:var(--gold);}
+.mc-val.red{color:var(--red2);}
+.mc-val.teal{color:var(--teal2);}
+.mc-sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono);}
+@media(max-width:900px){.mc-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:480px){.mc-grid{grid-template-columns:1fr 1fr;}}
+
+/* CHART CONTAINERS */
+.chart-wrap{position:relative;width:100%;height:300px;}
+.chart-wrap.tall{height:360px;}
+.chart-2col{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media(max-width:720px){.chart-2col{grid-template-columns:1fr;}}
+
+/* POSTER GRID */
+.poster-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+@media(max-width:900px){.poster-grid{grid-template-columns:repeat(4,1fr);}}
+@media(max-width:600px){.poster-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:400px){.poster-grid{grid-template-columns:repeat(2,1fr);}}
+.poster-card{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:2/3;background:var(--bg3);border:1px solid var(--border);cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s;}
+.poster-card:hover{transform:translateY(-5px) scale(1.02);box-shadow:0 16px 48px rgba(0,0,0,0.7),0 0 0 2px var(--gold);border-color:var(--gold);}
+.poster-card img{width:100%;height:100%;object-fit:cover;display:block;}
+.poster-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:36px;background:linear-gradient(135deg,var(--bg3),var(--bg4));color:var(--text3);}
+.poster-overlay{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.92));padding:24px 8px 9px;font-size:11px;color:var(--text);}
+.poster-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;}
+.poster-meta{color:var(--text3);font-size:10px;font-family:var(--mono);}
+.type-badge{position:absolute;top:7px;right:7px;font-family:var(--mono);font-size:8px;padding:2px 5px;border-radius:3px;letter-spacing:0.08em;text-transform:uppercase;}
+.type-badge.movie{background:rgba(220,38,38,0.82);color:#fff;}
+.type-badge.episode{background:rgba(20,184,166,0.82);color:#fff;}
+.poster-rating{position:absolute;top:7px;left:7px;font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px;background:rgba(245,158,11,0.85);color:#000;font-weight:700;}
+
+/* RANKED LIST */
+.ri-list{display:flex;flex-direction:column;gap:8px;}
+.ri{display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(20,20,35,0.6);border:1px solid var(--border);border-radius:var(--r);border-left:3px solid transparent;transition:all .2s;}
+.ri:hover{border-left-color:var(--gold);background:var(--gold3);transform:translateX(3px);}
+.ri-rank{font-family:var(--mono);font-size:12px;color:var(--text3);min-width:22px;text-align:right;}
+.ri-rank.g{color:#fbbf24;}
+.ri-rank.s{color:#94a3b8;}
+.ri-rank.b{color:#b87333;}
+.ri-info{flex:1;min-width:0;}
+.ri-name{font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ri-sub{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.ri-bar-wrap{width:100px;height:3px;background:rgba(245,158,11,0.12);border-radius:2px;overflow:hidden;}
+.ri-bar{height:100%;background:linear-gradient(90deg,var(--gold),var(--teal));border-radius:2px;}
+.ri-count{font-family:var(--mono);font-size:12px;color:var(--gold);min-width:40px;text-align:right;}
+
+/* TABS */
+.chart-tabs{display:flex;gap:6px;margin-bottom:20px;}
+.ctab{font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;transition:all .2s;letter-spacing:0.05em;}
+.ctab.active,.ctab:hover{border-color:var(--gold);color:var(--gold);background:var(--gold3);}
+
+/* MODAL / OVERLAY */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:32px;max-width:500px;width:90%;box-shadow:0 24px 80px rgba(0,0,0,0.8),0 0 0 1px rgba(245,158,11,0.05);}
+.modal-title{font-family:var(--serif);font-size:22px;color:var(--text);margin-bottom:8px;}
+.modal-sub{font-size:13px;color:var(--text3);margin-bottom:24px;font-family:var(--mono);}
+.modal-status{font-size:13px;color:var(--text2);margin-bottom:20px;padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);min-height:44px;line-height:1.5;}
+.modal-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.modal-progress-wrap{margin-top:14px;display:none;}
+.modal-progress-bar-bg{height:4px;background:rgba(245,158,11,0.15);border-radius:2px;overflow:hidden;margin-bottom:8px;}
+.modal-progress-bar{height:100%;background:linear-gradient(90deg,var(--gold),var(--teal));border-radius:2px;transition:width .3s;width:0%;}
+.modal-progress-txt{font-family:var(--mono);font-size:11px;color:var(--text3);}
+.btn{font-family:var(--mono);font-size:12px;padding:8px 14px;border-radius:8px;border:1px solid var(--border2);cursor:pointer;transition:all .2s;letter-spacing:0.04em;}
+.btn-primary{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;border-color:transparent;font-weight:700;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(245,158,11,0.35);}
+.btn-secondary{background:transparent;color:var(--text2);}
+.btn-secondary:hover{border-color:var(--border2);color:var(--text);}
+.btn-danger{background:transparent;color:var(--red2);border-color:rgba(220,38,38,0.3);}
+.btn-danger:hover{background:var(--red3);border-color:var(--red2);}
+.btn-abort{display:none;background:transparent;color:var(--text3);border-color:transparent;}
+.btn-abort:hover{color:var(--err);}
+
+/* SETUP MODAL */
+.setup-field{margin-bottom:16px;}
+.setup-label{font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;display:block;}
+.setup-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none;transition:border-color .2s;}
+.setup-input:focus{border-color:var(--gold);}
+.setup-hint{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono);}
+.setup-hint a{color:var(--gold);text-decoration:none;}
+
+/* TOAST */
+#db-toast{position:fixed;bottom:24px;right:24px;z-index:600;font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;max-width:280px;}
+#db-toast.show{opacity:1;transform:none;pointer-events:auto;}
+#db-toast.ok{border-color:rgba(34,197,94,0.4);color:#4ade80;}
+#db-toast.err{border-color:rgba(239,68,68,0.4);color:#fca5a5;}
+#db-toast.warn{border-color:rgba(245,158,11,0.4);color:var(--gold);}
+
+/* SYNC STATUS */
+#sync-status-label{font-family:var(--mono);font-size:10px;color:var(--text3);display:none;}
+
+/* MISC */
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;}
+.tag.movie{background:var(--red3);color:var(--red2);border:1px solid rgba(220,38,38,0.2);}
+.tag.episode{background:var(--teal3);color:var(--teal2);border:1px solid rgba(20,184,166,0.2);}
+
+a{color:inherit;text-decoration:none;}
+
+/* SCROLL REVEAL */
+section.reveal{opacity:0;transform:translateY(20px);transition:opacity .55s ease,transform .55s ease;}
+section.reveal.visible{opacity:1;transform:none;}
+
+/* BACK TO TOP */
+#btt{position:fixed;bottom:24px;left:24px;z-index:400;width:36px;height:36px;border-radius:50%;background:var(--card);border:1px solid var(--border2);cursor:pointer;color:var(--gold);font-size:16px;display:none;align-items:center;justify-content:center;transition:all .2s;}
+#btt:hover{border-color:var(--gold);box-shadow:0 0 12px rgba(245,158,11,0.2);}
+#btt.visible{display:flex;}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:48px 24px;color:var(--text3);}
+.empty-icon{font-size:40px;margin-bottom:12px;}
+.empty-msg{font-family:var(--mono);font-size:12px;letter-spacing:0.05em;}
+
+/* NO DATA COVER */
+.no-data-cover{display:none;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:12px;}
+.no-data-cover.show{display:flex;}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="wrap nav-inner">
+    <a class="nav-logo" href="movies.html">
+      Cinema Stats
+      <span>by s1r1us-a</span>
+    </a>
+    <div class="nav-links">
+      <a href="#overview">Übersicht</a>
+      <a href="#charts">Charts</a>
+      <a href="#recent">Zuletzt</a>
+      <a href="#shows">Serien</a>
+      <a href="index.html" class="music-link">♪ Musik</a>
+    </div>
+    <div class="nav-right">
+      <span id="sync-status-label"></span>
+      <button class="sync-nav-btn" onclick="openSyncModal()">⟳ Sync</button>
+    </div>
+  </div>
+</nav>
+
+<!-- SYNC BANNER -->
+<div id="sync-banner">
+  <div class="wrap">
+    <div class="sync-banner-inner" id="sync-banner-inner">
+      <div class="sync-spinner" id="sync-spinner"></div>
+      <span id="sync-banner-msg"></span>
+      <div class="sync-bar-wrap" id="sync-bar-wrap"><div class="sync-bar-fill" id="sync-bar-fill"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero-wrap">
+  <div class="wrap">
+    <div class="hero-ticket">
+      <div class="ticket-stub">
+        <span class="ticket-admit">Admit One</span>
+        <span class="ticket-cinema">Cinema</span>
+      </div>
+      <div class="ticket-main">
+        <div class="hero-title">Watch History</div>
+        <div class="hero-name" id="hero-username">s1r1us-a</div>
+        <div class="hero-stats-grid">
+          <div class="hero-stat">
+            <div class="hero-stat-val gold" id="hero-movies">—</div>
+            <div class="hero-stat-label">Filme</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-val" id="hero-episodes">—</div>
+            <div class="hero-stat-label">Episoden</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-val" id="hero-hours">—</div>
+            <div class="hero-stat-label">Stunden</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-val" id="hero-thisyear">—</div>
+            <div class="hero-stat-label">Dieses Jahr</div>
+          </div>
+        </div>
+      </div>
+      <div class="ticket-right">
+        <div class="ticket-badge">2025</div>
+        <div class="film-holes">
+          <div class="film-hole"></div><div class="film-hole"></div><div class="film-hole"></div>
+          <div class="film-hole"></div><div class="film-hole"></div><div class="film-hole"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="film-strip"></div>
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <div class="wrap">
+    <div class="sec-kicker">Statistiken</div>
+    <div class="sec-title">Übersicht</div>
+    <div class="sec-sub" id="sync-status-label2"></div>
+    <div class="mc-grid" id="mc-grid">
+      <div class="mc"><div class="mc-label">Filme gesamt</div><div class="mc-val gold" id="mc-movies">—</div></div>
+      <div class="mc"><div class="mc-label">Episoden gesamt</div><div class="mc-val teal" id="mc-episodes">—</div></div>
+      <div class="mc"><div class="mc-label">Watch-Zeit</div><div class="mc-val" id="mc-hours">—</div><div class="mc-sub" id="mc-hours-sub"></div></div>
+      <div class="mc"><div class="mc-label">Dieses Jahr</div><div class="mc-val" id="mc-thisyear">—</div></div>
+      <div class="mc"><div class="mc-label">Unique Serien</div><div class="mc-val" id="mc-shows">—</div></div>
+      <div class="mc"><div class="mc-label">Ø Bewertung</div><div class="mc-val gold" id="mc-rating">—</div><div class="mc-sub">von 10</div></div>
+      <div class="mc"><div class="mc-label">Diesen Monat</div><div class="mc-val" id="mc-thismonth">—</div></div>
+      <div class="mc"><div class="mc-label">Lieblingsgenre</div><div class="mc-val" id="mc-genre" style="font-size:16px;padding-top:4px;">—</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="film-strip"></div>
+
+<!-- CHARTS -->
+<section id="charts">
+  <div class="wrap">
+    <div class="sec-kicker">Verlauf</div>
+    <div class="sec-title">Monatliche Aktivität</div>
+    <div class="sec-sub">Filme und Episoden der letzten 12 Monate</div>
+    <div class="card card-pad">
+      <div class="chart-tabs">
+        <button class="ctab active" data-t="both" onclick="switchMonthlyTab(this)">Alle</button>
+        <button class="ctab" data-t="movies" onclick="switchMonthlyTab(this)">Filme</button>
+        <button class="ctab" data-t="episodes" onclick="switchMonthlyTab(this)">Episoden</button>
+      </div>
+      <div class="chart-wrap"><canvas id="monthly-chart"></canvas></div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <div class="chart-2col">
+        <div class="card card-pad">
+          <div class="sec-kicker" style="margin-bottom:6px;">Genre</div>
+          <div class="sec-title" style="font-size:18px;margin-bottom:16px;">Top Genres</div>
+          <div class="chart-wrap" style="height:260px;"><canvas id="genre-chart"></canvas></div>
+        </div>
+        <div class="card card-pad">
+          <div class="sec-kicker" style="margin-bottom:6px;">Jahrzehnt</div>
+          <div class="sec-title" style="font-size:18px;margin-bottom:16px;">Durch die Jahrzehnte</div>
+          <div class="chart-wrap" style="height:260px;"><canvas id="decade-chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <div class="card card-pad">
+        <div class="sec-kicker" style="margin-bottom:6px;">Bewertungen</div>
+        <div class="sec-title" style="font-size:18px;margin-bottom:16px;">Wie du bewertest</div>
+        <div class="chart-wrap" style="height:220px;"><canvas id="rating-chart"></canvas></div>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <div class="card card-pad">
+        <div class="sec-kicker" style="margin-bottom:6px;">Trend</div>
+        <div class="sec-title" style="font-size:18px;margin-bottom:16px;">Kumulierte Watch-Zeit</div>
+        <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="film-strip"></div>
+
+<!-- RECENTLY WATCHED -->
+<section id="recent">
+  <div class="wrap">
+    <div class="sec-kicker">Zuletzt gesehen</div>
+    <div class="sec-title">Letzte Aktivität</div>
+    <div class="sec-sub">Die 10 zuletzt geschauten Titel</div>
+    <div class="poster-grid" id="poster-grid">
+      <!-- filled by JS -->
+    </div>
+  </div>
+</section>
+
+<div class="film-strip"></div>
+
+<!-- TOP SHOWS -->
+<section id="shows">
+  <div class="wrap">
+    <div class="sec-kicker">Serien</div>
+    <div class="sec-title">Top Serien</div>
+    <div class="sec-sub">Nach Episodenanzahl</div>
+    <div class="card card-pad">
+      <div class="ri-list" id="shows-list">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BACK TO TOP -->
+<button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Nach oben">↑</button>
+
+<!-- SYNC MODAL -->
+<div class="modal-overlay" id="sync-modal">
+  <div class="modal-box">
+    <div class="modal-title">Trakt.tv Sync</div>
+    <div class="modal-sub">Filme & Serien in Firebase archivieren</div>
+    <div class="modal-status" id="sync-modal-status">Prüfe Archiv...</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="sync-full-btn" onclick="startFullImport()">Vollständiger Import</button>
+      <button class="btn btn-secondary" id="sync-delta-btn" onclick="startDeltaSync()">Delta-Sync</button>
+      <button class="btn btn-abort" id="sync-abort-btn" onclick="abortImport()">Abbrechen</button>
+      <button class="btn btn-secondary" onclick="closeSyncModal()" style="margin-left:auto;">Schließen</button>
+    </div>
+    <div class="modal-progress-wrap" id="sync-progress-wrap">
+      <div class="modal-progress-bar-bg"><div class="modal-progress-bar" id="sync-progress-bar"></div></div>
+      <div class="modal-progress-txt" id="sync-progress-txt"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP MODAL -->
+<div class="modal-overlay" id="setup-modal">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-title">Ersteinrichtung</div>
+    <div class="modal-sub" style="margin-bottom:20px;">Verbinde Trakt.tv und optionale TMDB-API</div>
+
+    <div class="setup-field">
+      <label class="setup-label">Trakt.tv Username</label>
+      <input class="setup-input" id="setup-user" type="text" placeholder="z.B. s1r1us-a" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="setup-field">
+      <label class="setup-label">Trakt Client ID</label>
+      <input class="setup-input" id="setup-client" type="text" placeholder="Client ID von trakt.tv/oauth/applications" autocomplete="off" spellcheck="false">
+      <div class="setup-hint">App erstellen auf <a href="https://trakt.tv/oauth/applications" target="_blank">trakt.tv/oauth/applications</a> → Client ID kopieren. Profil auf <strong>Public</strong> stellen.</div>
+    </div>
+    <div class="setup-field">
+      <label class="setup-label">TMDB API Key <span style="color:var(--text3);font-weight:400;">(optional — für Poster)</span></label>
+      <input class="setup-input" id="setup-tmdb" type="text" placeholder="API Read Access Token oder API Key" autocomplete="off" spellcheck="false">
+      <div class="setup-hint">Kostenlos auf <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org/settings/api</a>. Ohne diesen Key werden keine Filmplakate geladen.</div>
+    </div>
+    <div class="setup-field">
+      <label class="setup-label">Firebase Konfiguration</label>
+      <textarea class="setup-input" id="setup-fb" rows="6" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","databaseURL":"...","appId":"..."}' style="resize:vertical;font-size:11px;"></textarea>
+      <div class="setup-hint">JSON aus deiner Firebase-Konsole → Projekteinstellungen → Deine Apps → Konfiguration.</div>
+    </div>
+    <div class="modal-actions" style="margin-top:8px;">
+      <button class="btn btn-primary" onclick="saveSetup()">Speichern & Starten</button>
+    </div>
+    <div id="setup-error" style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--err);display:none;"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="db-toast"><span id="db-toast-msg"></span></div>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────────────────
+const CACHE_KEY = 'trakt_cache_v2';
+const TRAKT_API = 'https://api.trakt.tv';
+const TMDB_IMG  = 'https://image.tmdb.org/t/p/w342';
+const CINEMA_COLORS = ['#f59e0b','#dc2626','#14b8a6','#8b5cf6','#f97316','#06b6d4','#84cc16','#ec4899','#a78bfa','#fb923c'];
+const IMPORT_DELAY  = 200;
+const RETRY_MAX     = 3;
+const RETRY_DELAY   = 4000;
+
+// Runtime config (from localStorage)
+let TRAKT_USER   = localStorage.getItem('trakt_user')      || '';
+let TRAKT_CLIENT = localStorage.getItem('trakt_client_id') || '';
+let TMDB_KEY     = localStorage.getItem('tmdb_api_key')    || '';
+let FB_CONFIG_RAW= localStorage.getItem('cinema_fb_config')|| '';
+
+// ── STATE ──────────────────────────────────────────────────
+let _watchData    = null;
+let _watchPromise = null;
+let _importAborted= false;
+let _autoSyncRunning = false;
+let _traktFailCount  = 0;
+let _traktDown       = false;
+let _cache           = {};
+
+let monthlyInst = null, genreInst = null, decadeInst = null, ratingInst = null, trendInst = null;
+let _monthlyTab = 'both';
+
+// ── FIREBASE INIT ──────────────────────────────────────────
+let db = null;
+function initFirebase(cfg){
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    else firebase.app(); // re-use existing
+    db = firebase.database();
+    return true;
+  }catch(e){console.error('Firebase init failed:',e);return false;}
+}
+
+// ── SETUP ──────────────────────────────────────────────────
+function showSetupModal(){
+  document.getElementById('setup-modal').classList.add('open');
+  // Pre-fill if partially configured
+  document.getElementById('setup-user').value   = TRAKT_USER;
+  document.getElementById('setup-client').value = TRAKT_CLIENT;
+  document.getElementById('setup-tmdb').value   = TMDB_KEY;
+  document.getElementById('setup-fb').value     = FB_CONFIG_RAW;
+}
+
+function saveSetup(){
+  const user   = document.getElementById('setup-user').value.trim();
+  const client = document.getElementById('setup-client').value.trim();
+  const tmdb   = document.getElementById('setup-tmdb').value.trim();
+  const fbRaw  = document.getElementById('setup-fb').value.trim();
+  const errEl  = document.getElementById('setup-error');
+
+  if(!user||!client){errEl.textContent='Trakt Username und Client ID sind Pflichtfelder.';errEl.style.display='block';return;}
+
+  let fbCfg = null;
+  if(!fbRaw){errEl.textContent='Firebase Konfiguration fehlt.';errEl.style.display='block';return;}
+  try{ fbCfg = JSON.parse(fbRaw); }
+  catch(e){ errEl.textContent='Firebase JSON ungültig: '+e.message;errEl.style.display='block';return;}
+  if(!fbCfg.databaseURL){errEl.textContent='Firebase databaseURL fehlt im JSON.';errEl.style.display='block';return;}
+
+  errEl.style.display='none';
+  localStorage.setItem('trakt_user',user);
+  localStorage.setItem('trakt_client_id',client);
+  if(tmdb) localStorage.setItem('tmdb_api_key',tmdb);
+  localStorage.setItem('cinema_fb_config',fbRaw);
+
+  TRAKT_USER   = user;
+  TRAKT_CLIENT = client;
+  TMDB_KEY     = tmdb;
+  FB_CONFIG_RAW= fbRaw;
+
+  if(!initFirebase(fbCfg)){errEl.textContent='Firebase-Verbindung fehlgeschlagen. Config prüfen.';errEl.style.display='block';return;}
+
+  document.getElementById('setup-modal').classList.remove('open');
+  document.getElementById('hero-username').textContent = TRAKT_USER;
+  startup();
+}
+
+// ── UTILITY FUNCTIONS ──────────────────────────────────────
+function escapeHTML(s){
+  const d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML;
+}
+const fmt = n => Number(n).toLocaleString('de-DE');
+function fmtHours(mins){
+  if(mins<60) return Math.round(mins)+' Min';
+  const h = Math.floor(mins/60);
+  if(h < 24) return h.toLocaleString('de-DE')+' Std';
+  const d = Math.floor(h/24);
+  return d.toLocaleString('de-DE')+' Tage';
+}
+function fmtDur(ms){
+  if(ms<1000) return '<1s';
+  const s = Math.round(ms/1000);
+  if(s<60) return s+'s';
+  const m = Math.floor(s/60), rs = s%60;
+  return rs===0 ? m+':00 min' : m+':'+String(rs).padStart(2,'0')+' min';
+}
+function makeETATracker(){
+  const start = Date.now();
+  return {
+    elapsed: () => Date.now()-start,
+    fmtElapsed(){ return fmtDur(Date.now()-start); },
+    etaMs(pct){ if(pct<5||pct>=100) return null; const el=Date.now()-start; if(el<2000) return null; return Math.round(el/pct*(100-pct)); },
+    label(pct){ const el=this.fmtElapsed(); const e=this.etaMs(pct); return e===null?el:el+' · noch ~'+fmtDur(e); }
+  };
+}
+function timeAgo(ts){
+  const s=Math.floor((Date.now()-ts*1000)/1000);
+  if(s<60) return 'gerade';
+  if(s<3600) return Math.floor(s/60)+' Min';
+  if(s<86400) return Math.floor(s/3600)+' Std';
+  return Math.floor(s/86400)+' Tage';
+}
+function rankCls(i){ return i===0?'g':i===1?'s':i===2?'b':''; }
+
+let _toastTimer = null;
+function showToast(msg, type='', duration=4000){
+  const el = document.getElementById('db-toast');
+  const msgEl = document.getElementById('db-toast-msg');
+  el.className = 'show'+(type?' '+type:'');
+  msgEl.textContent = msg;
+  clearTimeout(_toastTimer);
+  if(duration>0) _toastTimer = setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>{ el.className=''; },300); }, duration);
+}
+
+function animateCounter(el, target, dur=1100){
+  const start = Date.now();
+  const isFloat = String(target).includes('.');
+  const rawCurrent = parseFloat((el.textContent||'0').replace(/[^0-9,.]/g,'').replace(/\./g,'').replace(',','.'));
+  const from = isNaN(rawCurrent) ? 0 : rawCurrent;
+  const tick = () => {
+    const p = Math.min((Date.now()-start)/dur, 1);
+    const ease = 1-Math.pow(1-p, 3);
+    const val = from+(target-from)*ease;
+    el.textContent = isFloat ? val.toFixed(1) : fmt(Math.round(val));
+    if(p<1) requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+// ── CACHE ──────────────────────────────────────────────────
+function loadCache(){
+  try{
+    const d = localStorage.getItem(CACHE_KEY);
+    if(d){ const p=JSON.parse(d); const age=(Date.now()-p.ts)/60000; if(age<30){ _cache=p.data; return; } }
+  }catch(e){}
+}
+function saveCache(){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ts:Date.now(), data:_cache})); }catch(e){}
+}
+
+// ── SYNC BANNER ────────────────────────────────────────────
+function syncBanner(state, msg, barPct=null){
+  const banner = document.getElementById('sync-banner');
+  const inner  = document.getElementById('sync-banner-inner');
+  const msgEl  = document.getElementById('sync-banner-msg');
+  const spinner= document.getElementById('sync-spinner');
+  const barWrap= document.getElementById('sync-bar-wrap');
+  const barFill= document.getElementById('sync-bar-fill');
+  if(!banner) return;
+  banner.classList.add('visible');
+  inner.className = 'sync-banner-inner '+state;
+  msgEl.textContent = msg;
+  spinner.style.display = (state==='syncing') ? 'block' : 'none';
+  if(barPct!==null && barWrap){ barWrap.style.display='block'; barFill.style.width=barPct+'%'; }
+  else if(barWrap){ barWrap.style.display='none'; }
+  if(state!=='syncing') setTimeout(()=>banner.classList.remove('visible'), state==='done-new'?5000:3000);
+}
+
+// ── CHART COLORS ───────────────────────────────────────────
+function chartColors(){
+  return {
+    tick: 'rgba(240,236,224,0.35)',
+    grid: 'rgba(255,255,255,0.04)',
+    tooltip: {
+      backgroundColor:'#0f0f1a',
+      borderColor:'rgba(245,158,11,0.3)',
+      borderWidth:1,
+      titleColor:'#f59e0b',
+      bodyColor:'rgba(240,236,224,0.7)',
+      titleFont:{family:'Space Mono'},
+      bodyFont:{family:'Space Mono'},
+      padding:10
+    }
+  };
+}
+
+// ── TRAKT API ──────────────────────────────────────────────
+function traktHeaders(){
+  return {
+    'Content-Type':'application/json',
+    'trakt-api-version':'2',
+    'trakt-api-key': TRAKT_CLIENT
+  };
+}
+
+async function traktFetch(path, opts={}){
+  const url = TRAKT_API + path;
+  const cacheKey = 'trakt_'+path;
+  if(!opts.noCache && _cache[cacheKey]) return _cache[cacheKey];
+  try{
+    const r = await fetch(url, {headers: traktHeaders(), ...opts});
+    if(!r.ok) throw new Error('HTTP '+r.status+' '+r.statusText);
+    const data = await r.json();
+    _traktFailCount = 0;
+    _traktDown = false;
+    if(!opts.noCache) _cache[cacheKey] = data;
+    return data;
+  }catch(e){
+    _traktFailCount++;
+    if(_traktFailCount >= 2) _traktDown = true;
+    throw e;
+  }
+}
+
+async function traktFetchAllHistory(type){
+  let page = 1, all = [];
+  while(true){
+    const res = await fetch(
+      `${TRAKT_API}/users/${TRAKT_USER}/history?type=${type}&limit=100&page=${page}`,
+      {headers: traktHeaders()}
+    );
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const pageCount = parseInt(res.headers.get('X-Pagination-Page-Count')||'1');
+    const items = await res.json();
+    all = all.concat(items);
+    updateProgressTxt(`${type} — Seite ${page}/${pageCount} geladen (${all.length} Einträge)...`);
+    if(page >= pageCount) break;
+    page++;
+    await new Promise(r=>setTimeout(r, IMPORT_DELAY));
+  }
+  return all;
+}
+
+async function traktFetchHistorySince(type, sinceTs){
+  // sinceTs in seconds → convert to ISO8601
+  const startAt = new Date(sinceTs*1000).toISOString();
+  let page = 1, all = [];
+  while(true){
+    const url = `${TRAKT_API}/users/${TRAKT_USER}/history?type=${type}&limit=100&page=${page}&start_at=${encodeURIComponent(startAt)}`;
+    const res = await fetch(url, {headers: traktHeaders()});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const pageCount = parseInt(res.headers.get('X-Pagination-Page-Count')||'1');
+    const itemCount = parseInt(res.headers.get('X-Pagination-Item-Count')||'0');
+    if(itemCount === 0) break;
+    const items = await res.json();
+    all = all.concat(items);
+    if(page >= pageCount) break;
+    page++;
+    await new Promise(r=>setTimeout(r, IMPORT_DELAY));
+  }
+  return all;
+}
+
+async function traktFetchRatings(type){
+  try{
+    const data = await traktFetch(`/users/${TRAKT_USER}/ratings/${type}`, {noCache:true});
+    const map = new Map();
+    data.forEach(r => {
+      const id = type==='movies'
+        ? r.movie?.ids?.trakt
+        : `${r.show?.ids?.trakt}_${r.episode?.season}x${r.episode?.number}`;
+      if(id) map.set(id, r.rating);
+    });
+    return map;
+  }catch(e){ return new Map(); }
+}
+
+// ── TMDB ───────────────────────────────────────────────────
+const _tmdbCache = new Map();
+
+async function tmdbGetMovie(tmdbId){
+  if(!TMDB_KEY || !tmdbId) return null;
+  if(_tmdbCache.has('m'+tmdbId)) return _tmdbCache.get('m'+tmdbId);
+  try{
+    const r = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_KEY}&language=de-DE`);
+    if(!r.ok) return null;
+    const d = await r.json();
+    const result = {poster:d.poster_path, genres:d.genres?.map(g=>g.name)||[], runtime:d.runtime||90, overview:d.overview||''};
+    _tmdbCache.set('m'+tmdbId, result);
+    return result;
+  }catch(e){ return null; }
+}
+
+async function tmdbGetShow(tmdbId){
+  if(!TMDB_KEY || !tmdbId) return null;
+  if(_tmdbCache.has('s'+tmdbId)) return _tmdbCache.get('s'+tmdbId);
+  try{
+    const r = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${TMDB_KEY}&language=de-DE`);
+    if(!r.ok) return null;
+    const d = await r.json();
+    const result = {poster:d.poster_path, genres:d.genres?.map(g=>g.name)||[], runtime:d.episode_run_time?.[0]||25};
+    _tmdbCache.set('s'+tmdbId, result);
+    return result;
+  }catch(e){ return null; }
+}
+
+function tmdbPosterURL(path){
+  return path ? TMDB_IMG + path : null;
+}
+
+// ── FIREBASE HELPERS ───────────────────────────────────────
+async function fbUpdateWithRetry(updates, maxAttempts=3){
+  let lastErr;
+  for(let attempt=1;attempt<=maxAttempts;attempt++){
+    try{
+      await db.ref('/').update(updates);
+      return;
+    }catch(e){
+      lastErr=e;
+      if(attempt<maxAttempts){
+        const wait = 1000*attempt;
+        console.warn(`Firebase write failed (${attempt}/${maxAttempts}): ${e.message} — retry in ${wait/1000}s`);
+        await new Promise(r=>setTimeout(r,wait));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+function makeWatchKey(item){
+  if(item.type === 'movie'){
+    const ts = Math.floor(new Date(item.watched_at).getTime()/1000);
+    return `${ts}_movie_${item.movie.ids.trakt}`;
+  } else {
+    const ts  = Math.floor(new Date(item.watched_at).getTime()/1000);
+    const slug = (item.show.ids.slug||'').slice(0,20).replace(/[^a-z0-9-]/g,'');
+    const s   = String(item.episode.season).padStart(2,'0');
+    const e   = String(item.episode.number).padStart(3,'0');
+    return `${ts}_ep_${slug}_${s}x${e}`;
+  }
+}
+
+async function writeTraktBatch(items, monthlyDeltas){
+  if(!items.length) return 0;
+  const updates = {};
+  let count = 0;
+  items.forEach(item => {
+    const key = makeWatchKey(item);
+    const ts  = Math.floor(new Date(item.watched_at).getTime()/1000);
+    const monthKey = new Date(item.watched_at).toISOString().slice(0,7);
+
+    if(item.type === 'movie'){
+      updates[`trakt_watches/${key}`] = {
+        type:'movie',
+        title: item.movie.title,
+        year:  item.movie.year||0,
+        trakt_id: item.movie.ids.trakt,
+        tmdb_id:  item.movie.ids.tmdb||null,
+        imdb_id:  item.movie.ids.imdb||null,
+        watched_at: ts,
+        rating: null,
+        runtime: 90,  // enriched later
+        genres: []    // enriched later
+      };
+      if(monthlyDeltas){
+        if(!monthlyDeltas[monthKey]) monthlyDeltas[monthKey]={movies:0,episodes:0,runtime:0};
+        monthlyDeltas[monthKey].movies++;
+        monthlyDeltas[monthKey].runtime += 90;
+      }
+    } else {
+      updates[`trakt_watches/${key}`] = {
+        type:'episode',
+        show_title:    item.show.title,
+        show_trakt_id: item.show.ids.trakt,
+        show_tmdb_id:  item.show.ids.tmdb||null,
+        season:   item.episode.season,
+        episode:  item.episode.number,
+        episode_title: item.episode.title||'',
+        watched_at: ts,
+        rating: null,
+        runtime: 25,  // enriched later
+        genres: []    // enriched later
+      };
+      if(monthlyDeltas){
+        if(!monthlyDeltas[monthKey]) monthlyDeltas[monthKey]={movies:0,episodes:0,runtime:0};
+        monthlyDeltas[monthKey].episodes++;
+        monthlyDeltas[monthKey].runtime += 25;
+      }
+    }
+    count++;
+  });
+
+  if(Object.keys(updates).length) await fbUpdateWithRetry(updates);
+  return count;
+}
+
+async function getWatchData(){
+  if(_watchData) return _watchData;
+  if(!_watchPromise){
+    _watchPromise = db.ref('trakt_watches').get().then(snap=>{
+      if(snap.exists()) _watchData = snap.val();
+      return _watchData || null;
+    }).catch(()=>null);
+  }
+  return _watchPromise;
+}
+
+async function getLatestWatchTs(){
+  try{
+    const snap = await db.ref('trakt_watches').orderByKey().limitToLast(1).get();
+    if(!snap.exists()) return null;
+    const key = Object.keys(snap.val())[0];
+    return parseInt(key.split('_')[0]);
+  }catch(e){ return null; }
+}
+
+async function getRealWatchCount(){
+  try{
+    const snap = await db.ref('trakt_watches').get();
+    return snap.exists() ? Object.keys(snap.val()).length : 0;
+  }catch(e){ return 0; }
+}
+
+// ── SYNC MODAL ─────────────────────────────────────────────
+function openSyncModal(){
+  document.getElementById('sync-modal').classList.add('open');
+  loadSyncStatus();
+}
+function closeSyncModal(){
+  document.getElementById('sync-modal').classList.remove('open');
+}
+document.getElementById('sync-modal').addEventListener('click', function(e){ if(e.target===this) closeSyncModal(); });
+
+async function loadSyncStatus(){
+  const el = document.getElementById('sync-modal-status');
+  el.textContent = 'Prüfe Archiv...';
+  const latestTs = await getLatestWatchTs();
+  if(!latestTs){
+    el.innerHTML = '<span style="color:var(--text3);">Noch kein Archiv. Starte den vollständigen Import.</span>';
+  } else {
+    const date = new Date(latestTs*1000).toLocaleString('de-DE',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const count = await getRealWatchCount();
+    el.innerHTML = `Letzter Eintrag: <span style="color:var(--gold);">${date}</span><br>
+      <span style="color:var(--gold2);font-size:13px;font-weight:700;">${fmt(count)}</span>
+      <span style="color:var(--text2);"> Einträge gespeichert</span>`;
+  }
+}
+
+function setSyncBusy(busy){
+  document.getElementById('sync-full-btn').style.display  = busy ? 'none':'inline-block';
+  document.getElementById('sync-delta-btn').style.display = busy ? 'none':'inline-block';
+  document.getElementById('sync-abort-btn').style.display = busy ? 'inline-block':'none';
+  const pw = document.getElementById('sync-progress-wrap');
+  pw.style.display = busy ? 'block':'none';
+  if(!busy){
+    document.getElementById('sync-progress-bar').style.width = '0%';
+    document.getElementById('sync-progress-txt').textContent = '';
+  }
+}
+
+function updateProgressTxt(txt){ document.getElementById('sync-progress-txt').textContent = txt; }
+function updateProgressBar(pct){ document.getElementById('sync-progress-bar').style.width = pct+'%'; }
+function abortImport(){ _importAborted = true; updateProgressTxt('Wird abgebrochen...'); }
+
+// ── FULL IMPORT ────────────────────────────────────────────
+async function startFullImport(){
+  const existing = await getLatestWatchTs();
+  if(existing){
+    const count = await getRealWatchCount();
+    const confirmed = confirm(`⚠ Es existiert bereits ein Archiv (${fmt(count)} Einträge).\n\nVollständiger Import löscht alle Daten und beginnt von vorne.\n\nFür neue Einträge nutze Delta-Sync.\n\nWirklich neu importieren?`);
+    if(!confirmed) return;
+  }
+
+  _importAborted = false;
+  setSyncBusy(true);
+  const statusEl = document.getElementById('sync-modal-status');
+
+  try{
+    statusEl.textContent = '🗑 Lösche altes Archiv...';
+    await db.ref('trakt_watches').remove();
+    await db.ref('trakt_meta').remove();
+    await db.ref('trakt_monthly').remove();
+
+    statusEl.textContent = 'Hole Filmgeschichte von Trakt.tv...';
+    updateProgressTxt('Lade Filme...');
+    const movies   = _importAborted ? [] : await traktFetchAllHistory('movies');
+    updateProgressTxt('Lade Episoden...');
+    const episodes = _importAborted ? [] : await traktFetchAllHistory('episodes');
+
+    if(!_importAborted){
+      // Fetch ratings
+      statusEl.textContent = 'Lade Bewertungen...';
+      const [movieRatings, episodeRatings] = await Promise.all([
+        traktFetchRatings('movies'),
+        traktFetchRatings('episodes')
+      ]);
+
+      // Fetch TMDB metadata in parallel batches of 5
+      statusEl.textContent = 'Lade TMDB-Metadaten...';
+      const allItems = [
+        ...movies.map(m=>({...m, type:'movie'})),
+        ...episodes.map(e=>({...e, type:'episode'}))
+      ];
+
+      // Apply ratings
+      allItems.forEach(item => {
+        if(item.type === 'movie'){
+          const r = movieRatings.get(item.movie.ids.trakt);
+          if(r) item._rating = r;
+        } else {
+          const k = `${item.show.ids.trakt}_${item.episode.season}x${item.episode.number}`;
+          const r = episodeRatings.get(k);
+          if(r) item._rating = r;
+        }
+      });
+
+      // Build unique TMDB IDs to fetch (to avoid duplicate requests)
+      const movieTmdbIds  = [...new Set(movies.filter(m=>m.movie.ids.tmdb).map(m=>m.movie.ids.tmdb))];
+      const showTmdbIds   = [...new Set(episodes.filter(e=>e.show.ids.tmdb).map(e=>e.show.ids.tmdb))];
+      const tmdbMovieMeta = new Map();
+      const tmdbShowMeta  = new Map();
+
+      const fetchBatch = async (ids, fetchFn, map, label) => {
+        for(let i=0; i<ids.length; i+=5){
+          if(_importAborted) break;
+          const chunk = ids.slice(i,i+5);
+          const pct = Math.round((i/ids.length)*30);
+          updateProgressTxt(`${label}: ${i}/${ids.length} (${pct}%)...`);
+          updateProgressBar(pct);
+          const results = await Promise.all(chunk.map(id=>fetchFn(id)));
+          chunk.forEach((id,j)=>{ if(results[j]) map.set(id, results[j]); });
+          await new Promise(r=>setTimeout(r,100));
+        }
+      };
+
+      if(TMDB_KEY){
+        await fetchBatch(movieTmdbIds, tmdbGetMovie, tmdbMovieMeta, 'Filmdaten');
+        await fetchBatch(showTmdbIds,  tmdbGetShow,  tmdbShowMeta,  'Seriensdaten');
+      }
+
+      // Enrich items with TMDB metadata
+      allItems.forEach(item => {
+        if(item.type === 'movie' && item.movie.ids.tmdb){
+          const meta = tmdbMovieMeta.get(item.movie.ids.tmdb);
+          if(meta){ item._runtime = meta.runtime; item._genres = meta.genres; }
+        } else if(item.type === 'episode' && item.show.ids.tmdb){
+          const meta = tmdbShowMeta.get(item.show.ids.tmdb);
+          if(meta){ item._runtime = meta.runtime; item._genres = meta.genres; }
+        }
+      });
+
+      // Write in chunks of 100
+      statusEl.textContent = `Schreibe ${fmt(allItems.length)} Einträge in Firebase...`;
+      const monthlyDeltas = {};
+      const writePromises = [];
+      const eta = makeETATracker();
+      let saved = 0;
+      const CHUNK = 100;
+
+      for(let i=0; i<allItems.length; i+=CHUNK){
+        if(_importAborted) break;
+        const chunk = allItems.slice(i, i+CHUNK);
+        // Enrich chunk entries
+        const enriched = chunk.map(item => {
+          if(item.type === 'movie'){
+            return {
+              type:'movie', title:item.movie.title, year:item.movie.year||0,
+              trakt_id:item.movie.ids.trakt, tmdb_id:item.movie.ids.tmdb||null, imdb_id:item.movie.ids.imdb||null,
+              watched_at: Math.floor(new Date(item.watched_at).getTime()/1000),
+              rating: item._rating||null, runtime: item._runtime||90, genres: item._genres||[]
+            };
+          } else {
+            return {
+              type:'episode', show_title:item.show.title,
+              show_trakt_id:item.show.ids.trakt, show_tmdb_id:item.show.ids.tmdb||null,
+              season:item.episode.season, episode:item.episode.number, episode_title:item.episode.title||'',
+              watched_at: Math.floor(new Date(item.watched_at).getTime()/1000),
+              rating: item._rating||null, runtime: item._runtime||25, genres: item._genres||[]
+            };
+          }
+        });
+
+        const updates = {};
+        enriched.forEach(e => {
+          // Rebuild key from enriched object
+          const ts = e.watched_at;
+          let key;
+          if(e.type==='movie'){
+            key = `${ts}_movie_${e.trakt_id}`;
+          } else {
+            const slug = (chunk[enriched.indexOf(e)]?.show?.ids?.slug||'').slice(0,20);
+            const s = String(e.season).padStart(2,'0');
+            const ep= String(e.episode).padStart(3,'0');
+            key = `${ts}_ep_${slug}_${s}x${ep}`;
+          }
+          updates[`trakt_watches/${key}`] = e;
+          const mk = new Date(ts*1000).toISOString().slice(0,7);
+          if(!monthlyDeltas[mk]) monthlyDeltas[mk]={movies:0,episodes:0,runtime:0};
+          if(e.type==='movie'){ monthlyDeltas[mk].movies++; } else { monthlyDeltas[mk].episodes++; }
+          monthlyDeltas[mk].runtime += e.runtime||0;
+        });
+
+        saved += enriched.length;
+        const pct = Math.round(30 + (i/allItems.length)*65);
+        updateProgressBar(pct);
+        updateProgressTxt(`${fmt(saved)}/${fmt(allItems.length)} — ${eta.label(pct)}`);
+        writePromises.push(fbUpdateWithRetry(updates));
+        await new Promise(r=>setTimeout(r,0));
+      }
+
+      if(!_importAborted){
+        updateProgressTxt(`Finalisiere ${writePromises.length} Firebase-Writes... · ${eta.fmtElapsed()} gesamt`);
+        await Promise.all(writePromises);
+
+        // Write monthly aggregates
+        const monthlyUpdates = {};
+        Object.entries(monthlyDeltas).forEach(([k,v])=>{
+          monthlyUpdates[`trakt_monthly/${k}`] = v;
+        });
+        if(Object.keys(monthlyUpdates).length) await fbUpdateWithRetry(monthlyUpdates);
+
+        const realCount = await getRealWatchCount();
+        await db.ref('trakt_meta').set({
+          last_import: Date.now(),
+          last_sync: Date.now(),
+          total_movies: movies.length,
+          total_episodes: episodes.length,
+          total_runtime_minutes: allItems.reduce((s,x)=>s+(x._runtime||(x.type==='movie'?90:25)),0)
+        });
+
+        updateProgressBar(100);
+        updateProgressTxt(`✓ Fertig — ${fmt(realCount)} Einträge importiert`);
+        statusEl.innerHTML = `✓ Import abgeschlossen<br><span style="color:var(--gold2);font-size:13px;font-weight:700;">${fmt(realCount)}</span> <span style="color:var(--text2);">Einträge archiviert</span>`;
+        showToast('✓ Import abgeschlossen', 'ok');
+
+        // Invalidate + reload
+        _watchData = null; _watchPromise = null;
+        await refreshAllCharts();
+      }
+  }catch(e){
+    document.getElementById('sync-modal-status').innerHTML = `<span style="color:var(--err);">Fehler: ${escapeHTML(e.message)}</span>`;
+    showToast('Import fehlgeschlagen','err');
+  }
+  }catch(outerErr){
+    document.getElementById('sync-modal-status').innerHTML = `<span style="color:var(--err);">Fehler: ${escapeHTML(outerErr.message)}</span>`;
+    showToast('Import fehlgeschlagen','err');
+  }
+  setSyncBusy(false);
+  loadSyncStatus();
+}
+
+// ── DELTA SYNC ─────────────────────────────────────────────
+async function startDeltaSync(){
+  _importAborted = false;
+  setSyncBusy(true);
+  const statusEl = document.getElementById('sync-modal-status');
+
+  try{
+    statusEl.textContent = 'Prüfe letzten Eintrag...';
+    const latestTs = await getLatestWatchTs();
+    if(!latestTs){
+      statusEl.innerHTML = 'Kein Archiv. Bitte zuerst vollständigen Import.';
+      setSyncBusy(false);
+      return;
+    }
+
+    const fromTs = latestTs + 1;
+    const fromDate = new Date(fromTs*1000).toLocaleString('de-DE',{day:'2-digit',month:'short',year:'numeric'});
+    statusEl.innerHTML = `Hole neue Einträge seit <span style="color:var(--gold);">${fromDate}</span>...`;
+
+    const [newMovies, newEpisodes] = await Promise.all([
+      traktFetchHistorySince('movies', fromTs),
+      traktFetchHistorySince('episodes', fromTs)
+    ]);
+
+    const total = newMovies.length + newEpisodes.length;
+    if(total === 0){
+      await db.ref('trakt_meta/last_sync').set(Date.now());
+      statusEl.innerHTML = `✓ Archiv ist aktuell<br><span style="color:var(--text3);">Keine neuen Einträge seit <span style="color:var(--gold);">${fromDate}</span></span>`;
+      setSyncBusy(false);
+      await updateSyncStatusLabel();
+      return;
+    }
+
+    statusEl.innerHTML = `<span style="color:var(--gold);">${fmt(total)}</span> neue Einträge gefunden...`;
+    const allNew = [
+      ...newMovies.map(m=>({...m, type:'movie'})),
+      ...newEpisodes.map(e=>({...e, type:'episode'}))
+    ];
+
+    const monthlyDeltas = {};
+    const eta = makeETATracker();
+    const CHUNK = 100;
+    let saved = 0;
+    const writePromises = [];
+
+    for(let i=0; i<allNew.length; i+=CHUNK){
+      if(_importAborted) break;
+      const chunk = allNew.slice(i, i+CHUNK);
+      writePromises.push(writeTraktBatch(chunk, monthlyDeltas).then(n=>{saved+=n;}));
+      const pct = Math.round((i/allNew.length)*90);
+      updateProgressBar(pct);
+      updateProgressTxt(`${fmt(saved)}/${fmt(total)} — ${eta.label(pct)}`);
+      await new Promise(r=>setTimeout(r,0));
+    }
+
+    if(!_importAborted){
+      updateProgressTxt(`Finalisiere Writes... · ${eta.fmtElapsed()}`);
+      await Promise.all(writePromises);
+
+      // Merge monthly deltas
+      const existingMonthly = (await db.ref('trakt_monthly').get()).val() || {};
+      const mergedMonthly = {...existingMonthly};
+      Object.entries(monthlyDeltas).forEach(([k,v])=>{
+        if(!mergedMonthly[k]) mergedMonthly[k]={movies:0,episodes:0,runtime:0};
+        mergedMonthly[k].movies   += v.movies;
+        mergedMonthly[k].episodes += v.episodes;
+        mergedMonthly[k].runtime  += v.runtime;
+      });
+      await db.ref('trakt_monthly').set(mergedMonthly);
+      await db.ref('trakt_meta/last_sync').set(Date.now());
+
+      updateProgressBar(100);
+      statusEl.innerHTML = `✓ Delta-Sync abgeschlossen<br><span style="color:var(--gold2);font-size:13px;font-weight:700;">+${fmt(saved)}</span> <span style="color:var(--text2);">neue Einträge</span>`;
+      showToast(`✓ +${fmt(saved)} neue Einträge`, 'ok');
+      await updateSyncStatusLabel();
+
+      _watchData = null; _watchPromise = null;
+      await refreshAllCharts();
+    }
+  }catch(e){
+    document.getElementById('sync-modal-status').innerHTML = `<span style="color:var(--err);">Fehler: ${escapeHTML(e.message)}</span>`;
+    showToast('Delta-Sync fehlgeschlagen','err');
+  }
+  setSyncBusy(false);
+  loadSyncStatus();
+}
+
+// ── AUTO BACKGROUND SYNC ───────────────────────────────────
+async function autoBackgroundSync(silent=false){
+  if(_autoSyncRunning || _traktDown) return;
+  _autoSyncRunning = true;
+  try{
+    const hasArchive = await getLatestWatchTs();
+    if(!hasArchive) return;
+
+    if(!silent) syncBanner('syncing','Prüfe auf neue Einträge...');
+
+    const latestTs = await getLatestWatchTs();
+    if(!latestTs){ if(!silent) syncBanner('done-ok','Kein Archiv'); return; }
+
+    const fromTs = latestTs + 1;
+    const [nm, ne] = await Promise.all([
+      traktFetchHistorySince('movies', fromTs),
+      traktFetchHistorySince('episodes', fromTs)
+    ]);
+    const total = nm.length + ne.length;
+
+    if(total === 0){
+      await db.ref('trakt_meta/last_sync').set(Date.now());
+      if(!silent){ const b=document.getElementById('sync-banner'); if(b) b.classList.remove('visible'); }
+      await updateSyncStatusLabel();
+      return;
+    }
+
+    syncBanner('syncing', `${fmt(total)} neue Einträge werden gespeichert...`, 0);
+    const allNew = [...nm.map(m=>({...m,type:'movie'})), ...ne.map(e=>({...e,type:'episode'}))];
+    const monthlyDeltas = {};
+    let saved = 0;
+    const writePromises = [];
+    const CHUNK = 100;
+    const eta = makeETATracker();
+
+    for(let i=0; i<allNew.length; i+=CHUNK){
+      const chunk = allNew.slice(i, i+CHUNK);
+      writePromises.push(writeTraktBatch(chunk, monthlyDeltas).then(n=>{saved+=n;}));
+      const pct = Math.round((i/allNew.length)*90);
+      syncBanner('syncing', `${fmt(saved)}/${fmt(total)} — ${eta.label(pct)}`, pct);
+      await new Promise(r=>setTimeout(r,0));
+    }
+
+    syncBanner('syncing', `Finalisiere Writes... · ${eta.fmtElapsed()}`, 95);
+    await Promise.all(writePromises);
+
+    const existingMonthly = (await db.ref('trakt_monthly').get()).val() || {};
+    const mergedMonthly = {...existingMonthly};
+    Object.entries(monthlyDeltas).forEach(([k,v])=>{
+      if(!mergedMonthly[k]) mergedMonthly[k]={movies:0,episodes:0,runtime:0};
+      mergedMonthly[k].movies   += v.movies;
+      mergedMonthly[k].episodes += v.episodes;
+      mergedMonthly[k].runtime  += v.runtime;
+    });
+    await db.ref('trakt_monthly').set(mergedMonthly);
+    await db.ref('trakt_meta/last_sync').set(Date.now());
+
+    syncBanner('done-new', `✓ +${fmt(saved)} neue Einträge synchronisiert`, 100);
+    await updateSyncStatusLabel();
+
+    _watchData = null; _watchPromise = null;
+    await refreshAllCharts();
+
+  }catch(e){
+    if(!silent){ syncBanner('err','Sync fehlgeschlagen: '+e.message); }
+    else { console.warn('Silent sync error:',e.message); }
+  } finally {
+    _autoSyncRunning = false;
+  }
+}
+
+async function updateSyncStatusLabel(){
+  const el1 = document.getElementById('sync-status-label');
+  const el2 = document.getElementById('sync-status-label2');
+  try{
+    const snap = await db.ref('trakt_meta/last_sync').get();
+    if(!snap.exists()){ if(el1) el1.style.display='none'; return; }
+    const lastSync = snap.val();
+    const ageMin = Math.round((Date.now()-lastSync)/60000);
+    let label;
+    if(ageMin<1) label='aktuell · gerade eben';
+    else if(ageMin<60) label=`aktuell · vor ${ageMin} Min`;
+    else if(ageMin<1440){ const h=Math.floor(ageMin/60); label=`aktuell · vor ${h} Std`; }
+    else { const d=Math.floor(ageMin/1440); label=`vor ${d} Tag${d===1?'':'en'}`; }
+    if(el1){ el1.textContent=label; el1.style.display='block'; }
+    if(el2){ el2.textContent=label; el2.style.display='block'; }
+  }catch(e){ if(el1) el1.style.display='none'; }
+}
+
+// ── DATA AGGREGATION ───────────────────────────────────────
+function aggregateWatchData(data){
+  const entries = Object.values(data||{});
+  const movies  = entries.filter(e=>e.type==='movie');
+  const episodes= entries.filter(e=>e.type==='episode');
+
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.toISOString().slice(0,7);
+
+  const totalRuntime = entries.reduce((s,e)=>s+(e.runtime||0),0);
+  const ratings = entries.filter(e=>e.rating).map(e=>e.rating);
+  const avgRating = ratings.length ? (ratings.reduce((s,r)=>s+r,0)/ratings.length) : 0;
+
+  const thisYear  = entries.filter(e=>new Date(e.watched_at*1000).getFullYear()===curYear);
+  const thisMonth = entries.filter(e=>new Date(e.watched_at*1000).toISOString().slice(0,7)===curMonth);
+
+  // Unique shows
+  const showSet = new Set(episodes.map(e=>e.show_title));
+
+  // Genre aggregation
+  const genreMap = new Map();
+  entries.forEach(e=>{ (e.genres||[]).forEach(g=>{ genreMap.set(g,(genreMap.get(g)||0)+1); }); });
+
+  // Decade aggregation (movies only)
+  const decadeMap = new Map();
+  movies.forEach(m=>{ if(m.year){ const d=Math.floor(m.year/10)*10; decadeMap.set(d,(decadeMap.get(d)||0)+1); } });
+
+  // Monthly data (last 12 months)
+  const monthKeys = [];
+  for(let i=11;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    monthKeys.push(d.toISOString().slice(0,7));
+  }
+  const monthly = {};
+  monthKeys.forEach(k=>{ monthly[k]={movies:0,episodes:0,runtime:0}; });
+  entries.forEach(e=>{
+    const mk = new Date(e.watched_at*1000).toISOString().slice(0,7);
+    if(monthly[mk]){
+      if(e.type==='movie') monthly[mk].movies++;
+      else monthly[mk].episodes++;
+      monthly[mk].runtime += e.runtime||0;
+    }
+  });
+
+  // Rating distribution
+  const ratingDist = new Array(10).fill(0);
+  ratings.forEach(r=>{ const idx=Math.round(r)-1; if(idx>=0&&idx<10) ratingDist[idx]++; });
+
+  // Cumulative trend (watch time per month)
+  const trendMonths = [...monthKeys];
+  let cumulative = 0;
+  const trendData = trendMonths.map(k=>{ cumulative += (monthly[k]?.runtime||0)/60; return Math.round(cumulative*10)/10; });
+
+  // Top shows
+  const showMap = new Map();
+  episodes.forEach(e=>{ showMap.set(e.show_title,(showMap.get(e.show_title)||0)+1); });
+  const topShows = [...showMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  // Top genres (sorted)
+  const topGenres = [...genreMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  // Top decades (sorted)
+  const topDecades = [...decadeMap.entries()].sort((a,b)=>a[0]-b[0]);
+
+  // Favorite genre
+  const favGenre = topGenres[0]?.[0] || '—';
+
+  // Recent 10 (sorted by watched_at desc)
+  const recent10 = [...entries].sort((a,b)=>b.watched_at-a.watched_at).slice(0,10);
+
+  return {
+    movies, episodes, entries,
+    totalRuntime, avgRating, thisYear, thisMonth,
+    showSet, genreMap, decadeMap,
+    monthKeys, monthly, ratingDist, trendData,
+    topShows, topGenres, topDecades, favGenre, recent10
+  };
+}
+
+// ── RENDER FUNCTIONS ───────────────────────────────────────
+function renderHeroStats(agg){
+  if(!agg) return;
+  const ids = ['hero-movies','hero-episodes','hero-hours','hero-thisyear'];
+  const vals = [agg.movies.length, agg.episodes.length, Math.round(agg.totalRuntime/60), agg.thisYear.length];
+  ids.forEach((id,i)=>{ const el=document.getElementById(id); if(el) animateCounter(el, vals[i]); });
+}
+
+function renderOverviewGrid(agg){
+  if(!agg) return;
+  const set = (id, val, raw) => { const el=document.getElementById(id); if(!el) return; if(raw){ el.textContent=val; }else{ animateCounter(el, val); } };
+  set('mc-movies',   agg.movies.length);
+  set('mc-episodes', agg.episodes.length);
+  const el = document.getElementById('mc-hours');
+  if(el){ el.textContent = fmtHours(agg.totalRuntime); }
+  const subEl = document.getElementById('mc-hours-sub');
+  if(subEl && agg.totalRuntime>=60){ subEl.textContent = fmt(Math.round(agg.totalRuntime/60))+' Stunden'; }
+  set('mc-thisyear',  agg.thisYear.length);
+  set('mc-shows',     agg.showSet.size);
+  const rEl = document.getElementById('mc-rating');
+  if(rEl){ rEl.textContent = agg.avgRating ? agg.avgRating.toFixed(1) : '—'; }
+  set('mc-thismonth', agg.thisMonth.length);
+  const gEl = document.getElementById('mc-genre');
+  if(gEl){ gEl.textContent = agg.favGenre; }
+}
+
+function renderMonthlyChart(agg, tab='both'){
+  const canvas = document.getElementById('monthly-chart');
+  if(!canvas || !agg) return;
+  if(monthlyInst){ monthlyInst.destroy(); monthlyInst=null; }
+  const cc = chartColors();
+  const labels = agg.monthKeys.map(k=>{ const d=new Date(k+'-01'); return d.toLocaleDateString('de-DE',{month:'short',year:'2-digit'}); });
+
+  let datasets = [];
+  if(tab==='movies' || tab==='both'){
+    datasets.push({
+      label:'Filme',
+      data: agg.monthKeys.map(k=>agg.monthly[k]?.movies||0),
+      backgroundColor: 'rgba(220,38,38,0.7)',
+      borderColor: '#dc2626',
+      borderWidth:1, borderRadius:4
+    });
+  }
+  if(tab==='episodes' || tab==='both'){
+    datasets.push({
+      label:'Episoden',
+      data: agg.monthKeys.map(k=>agg.monthly[k]?.episodes||0),
+      backgroundColor: 'rgba(20,184,166,0.7)',
+      borderColor: '#14b8a6',
+      borderWidth:1, borderRadius:4
+    });
+  }
+
+  monthlyInst = new Chart(canvas, {
+    type:'bar',
+    data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:cc.tick,font:{family:'Space Mono',size:11},boxWidth:12}}, tooltip:cc.tooltip},
+      scales:{
+        x:{ticks:{color:cc.tick,font:{size:10,family:'Space Mono'},maxRotation:45},grid:{color:cc.grid},border:{display:false}},
+        y:{ticks:{color:cc.tick,font:{size:10,family:'Space Mono'}},grid:{color:cc.grid},border:{display:false}}
+      }
+    }
+  });
+}
+
+function renderGenreChart(agg){
+  const canvas = document.getElementById('genre-chart');
+  if(!canvas || !agg) return;
+  if(genreInst){ genreInst.destroy(); genreInst=null; }
+  if(!agg.topGenres.length){ canvas.parentElement.innerHTML='<div class="empty"><div class="empty-icon">🎭</div><div class="empty-msg">Keine Genre-Daten</div></div>'; return; }
+  const cc = chartColors();
+  genreInst = new Chart(canvas, {
+    type:'doughnut',
+    data:{
+      labels: agg.topGenres.map(([g])=>g),
+      datasets:[{data: agg.topGenres.map(([,c])=>c), backgroundColor:CINEMA_COLORS, borderColor:'transparent', borderWidth:0, hoverBorderWidth:2, hoverBorderColor:'#fff'}]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      cutout:'62%',
+      plugins:{
+        legend:{position:'bottom',labels:{color:cc.tick,font:{family:'Space Mono',size:10},boxWidth:10,padding:10}},
+        tooltip:cc.tooltip
+      }
+    }
+  });
+}
+
+function renderDecadeChart(agg){
+  const canvas = document.getElementById('decade-chart');
+  if(!canvas || !agg) return;
+  if(decadeInst){ decadeInst.destroy(); decadeInst=null; }
+  if(!agg.topDecades.length){ canvas.parentElement.innerHTML='<div class="empty"><div class="empty-icon">📽</div><div class="empty-msg">Keine Jahrzehnt-Daten</div></div>'; return; }
+  const cc = chartColors();
+  const total = agg.topDecades.reduce((s,[,c])=>s+c,0);
+  decadeInst = new Chart(canvas, {
+    type:'bar',
+    data:{
+      labels: agg.topDecades.map(([d])=>d+'s'),
+      datasets:[{
+        label:'Filme',
+        data: agg.topDecades.map(([,c])=>c),
+        backgroundColor: agg.topDecades.map(([d])=>{
+          const rec = d >= 2000;
+          return rec ? 'rgba(245,158,11,0.75)' : 'rgba(245,158,11,0.3)';
+        }),
+        borderColor: 'rgba(245,158,11,0.5)',
+        borderWidth:1, borderRadius:4
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:cc.tooltip},
+      scales:{
+        x:{ticks:{color:cc.tick,font:{size:10,family:'Space Mono'}},grid:{color:cc.grid},border:{display:false}},
+        y:{ticks:{color:cc.tick,font:{size:10,family:'Space Mono'}},grid:{color:cc.grid},border:{display:false}}
+      }
+    }
+  });
+}
+
+function renderRatingChart(agg){
+  const canvas = document.getElementById('rating-chart');
+  if(!canvas || !agg) return;
+  if(ratingInst){ ratingInst.destroy(); ratingInst=null; }
+  const cc = chartColors();
+  const labels = ['1','2','3','4','5','6','7','8','9','10'];
+  const colors = agg.ratingDist.map((_,i)=> i>=7 ? 'rgba(245,158,11,0.85)' : i>=5 ? 'rgba(245,158,11,0.45)' : 'rgba(100,100,120,0.5)');
+  ratingInst = new Chart(canvas, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{label:'Bewertungen', data:agg.ratingDist, backgroundColor:colors, borderColor:'transparent', borderRadius:4}]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:cc.tooltip},
+      scales:{
+        x:{ticks:{color:cc.tick,font:{size:11,family:'Space Mono'}},grid:{color:cc.grid},border:{display:false}},
+        y:{ticks:{color:cc.tick,font:{size:10,family:'Space Mono'}},grid:{color:cc.grid},border:{display:false}}
+      }
+    }
+  });
+}
+
+function renderTrendChart(agg){
+  const canvas = document.getElementById('trend-chart');
+  if(!canvas || !agg) return;
+  if(trendInst){ trendInst.destroy(); trendInst=null; }
+  const cc = chartColors();
+  const labels = agg.monthKeys.map(k=>{ const d=new Date(k+'-01'); return d.toLocaleDateString('de-DE',{month:'short',year:'2-digit'}); });
+  trendInst = new Chart(canvas, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:'Kumulierte Stunden',
+        data: agg.trendData,
+        borderColor:'#f59e0b', borderWidth:2,
+        backgroundColor:'rgba(245,158,11,0.06)',
+        fill:true, tension:0.35,
+        pointBackgroundColor:'#f59e0b', pointRadius:3, pointHoverRadius:5
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:cc.tick,font:{family:'Space Mono',size:11}}}, tooltip:cc.tooltip},
+      scales:{
+        x:{ticks:{color:cc.tick,font:{size:10,family:'Space Mono'},maxRotation:45},grid:{color:cc.grid},border:{display:false}},
+        y:{ticks:{color:cc.tick,font:{size:10,family:'Space Mono'}},grid:{color:cc.grid},border:{display:false}}
+      }
+    }
+  });
+}
+
+async function renderRecentGrid(agg){
+  const grid = document.getElementById('poster-grid');
+  if(!grid || !agg) return;
+  if(!agg.recent10.length){ grid.innerHTML='<div class="empty" style="grid-column:1/-1;"><div class="empty-icon">🎬</div><div class="empty-msg">Noch keine Daten</div></div>'; return; }
+
+  grid.innerHTML = agg.recent10.map(e=>{
+    const isMovie = e.type === 'movie';
+    const title   = isMovie ? escapeHTML(e.title) : escapeHTML(e.show_title);
+    const meta    = isMovie ? (e.year||'') : `S${String(e.season).padStart(2,'0')}E${String(e.episode).padStart(3,'0')}`;
+    const tsStr   = timeAgo(e.watched_at);
+    const ratingBadge = e.rating ? `<div class="poster-rating">★ ${e.rating}</div>` : '';
+    return `
+      <div class="poster-card" data-tmdb="${isMovie?e.tmdb_id:e.show_tmdb_id}" data-type="${e.type}" title="${title}">
+        <div class="poster-ph">🎬</div>
+        <div class="type-badge ${isMovie?'movie':'episode'}">${isMovie?'Film':'Episode'}</div>
+        ${ratingBadge}
+        <div class="poster-overlay">
+          <div class="poster-title">${title}</div>
+          <div class="poster-meta">${meta} · ${tsStr}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Lazy load TMDB posters
+  if(TMDB_KEY){
+    grid.querySelectorAll('.poster-card').forEach(async (card, i) => {
+      const tmdbId = card.dataset.tmdb;
+      const type   = card.dataset.type;
+      if(!tmdbId || tmdbId==='null') return;
+      try{
+        const meta = type==='movie' ? await tmdbGetMovie(tmdbId) : await tmdbGetShow(tmdbId);
+        const url  = tmdbPosterURL(meta?.poster);
+        if(!url) return;
+        const ph = card.querySelector('.poster-ph');
+        if(!ph) return;
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = '';
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+        img.onload = () => ph.replaceWith(img);
+        img.onerror = () => {};
+      }catch(e){}
+    });
+  }
+}
+
+function renderTopShows(agg){
+  const list = document.getElementById('shows-list');
+  if(!list || !agg) return;
+  if(!agg.topShows.length){ list.innerHTML='<div class="empty"><div class="empty-icon">📺</div><div class="empty-msg">Keine Serien-Daten</div></div>'; return; }
+  const max = agg.topShows[0]?.[1] || 1;
+  list.innerHTML = agg.topShows.map(([name, count], i) => `
+    <div class="ri">
+      <div class="ri-rank ${rankCls(i)}">#${i+1}</div>
+      <div class="ri-info">
+        <div class="ri-name">${escapeHTML(name)}</div>
+        <div class="ri-sub">${fmt(count)} Episoden</div>
+      </div>
+      <div class="ri-bar-wrap"><div class="ri-bar" style="width:${Math.round(count/max*100)}%"></div></div>
+      <div class="ri-count">${fmt(count)}</div>
+    </div>`).join('');
+}
+
+function switchMonthlyTab(btn){
+  document.querySelectorAll('.ctab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  _monthlyTab = btn.dataset.t;
+  if(_watchData){
+    const agg = aggregateWatchData(_watchData);
+    renderMonthlyChart(agg, _monthlyTab);
+  }
+}
+
+async function refreshAllCharts(){
+  const data = await getWatchData();
+  if(!data) return;
+  const agg = aggregateWatchData(data);
+  renderHeroStats(agg);
+  renderOverviewGrid(agg);
+  renderMonthlyChart(agg, _monthlyTab);
+  renderGenreChart(agg);
+  renderDecadeChart(agg);
+  renderRatingChart(agg);
+  renderTrendChart(agg);
+  await renderRecentGrid(agg);
+  renderTopShows(agg);
+}
+
+// ── SCROLL REVEAL ──────────────────────────────────────────
+const revealObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); revealObs.unobserve(e.target); } });
+},{threshold:0.06});
+document.querySelectorAll('section').forEach(s=>{ s.classList.add('reveal'); revealObs.observe(s); });
+
+// ── BACK TO TOP ────────────────────────────────────────────
+window.addEventListener('scroll',()=>{
+  const btt = document.getElementById('btt');
+  if(btt) btt.classList.toggle('visible', window.scrollY > 400);
+});
+
+// ── STARTUP ────────────────────────────────────────────────
+async function startup(){
+  loadCache();
+  document.getElementById('hero-username').textContent = TRAKT_USER || 's1r1us-a';
+
+  try{
+    const watchPromise = getWatchData();
+
+    // Render placeholder state while loading
+    const data = await watchPromise;
+    if(data){
+      const agg = aggregateWatchData(data);
+      renderHeroStats(agg);
+      renderOverviewGrid(agg);
+      renderMonthlyChart(agg, _monthlyTab);
+      renderGenreChart(agg);
+      renderDecadeChart(agg);
+      renderRatingChart(agg);
+      renderTrendChart(agg);
+      await renderRecentGrid(agg);
+      renderTopShows(agg);
+    } else {
+      // No data yet — invite user to import
+      showToast('Noch keine Daten — starte den Import über ⟳ Sync', 'warn', 8000);
+    }
+
+    saveCache();
+
+    // Background sync
+    autoBackgroundSync(true).then(()=>updateSyncStatusLabel()).catch(()=>{});
+    updateSyncStatusLabel();
+
+    // Periodic sync every 5 min
+    setInterval(()=>{
+      if(document.hidden || _traktDown) return;
+      autoBackgroundSync(true).catch(()=>{});
+    }, 5*60*1000);
+
+    // Tab focus sync
+    document.addEventListener('visibilitychange', ()=>{
+      if(!document.hidden && !_traktDown) autoBackgroundSync(true).catch(()=>{});
+    });
+
+  }catch(e){
+    showToast('Fehler beim Laden: '+e.message, 'err');
+    console.error('Startup error:', e);
+  }
+}
+
+// ── INIT ───────────────────────────────────────────────────
+(function init(){
+  // Check if we have all required config
+  const hasConfig = TRAKT_USER && TRAKT_CLIENT && FB_CONFIG_RAW;
+  if(!hasConfig){
+    showSetupModal();
+    return;
+  }
+  // Try to init Firebase from stored config
+  try{
+    const cfg = JSON.parse(FB_CONFIG_RAW);
+    if(!initFirebase(cfg)){
+      showSetupModal();
+      return;
+    }
+  }catch(e){
+    showSetupModal();
+    return;
+  }
+  startup();
+})();
+</script>
+</body>
+</html>
