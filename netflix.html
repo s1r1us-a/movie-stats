@@ -66,12 +66,7 @@
       background: var(--bg3); border: 1px solid var(--border);
       border-radius: 99px; padding: 3px 10px; display: none;
     }
-    #profile-badge {
-      font-size: 0.78rem; color: var(--red);
-      background: rgba(229,9,20,0.1); border: 1px solid var(--border-red);
-      border-radius: 99px; padding: 3px 10px; display: none;
-    }
-    #reset-btn {
+#reset-btn {
       display: none; align-items: center; gap: 5px;
       background: var(--bg3); border: 1px solid var(--border);
       color: var(--text-dim); font-size: 0.78rem;
@@ -79,6 +74,44 @@
       cursor: pointer; font-family: inherit; transition: all 0.15s;
     }
     #reset-btn:hover { border-color: var(--red); color: var(--text); }
+
+    /* ── PROFILE SWITCHER ── */
+    #profile-switcher {
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 1.75rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+      flex-wrap: wrap;
+    }
+    #profile-switcher .ps-label {
+      font-size: 0.72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted); margin-right: 0.25rem;
+      flex-shrink: 0;
+    }
+    .profile-btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.35rem 1rem; border-radius: 99px;
+      border: 1px solid var(--border);
+      background: var(--bg3); color: var(--text-dim);
+      font-size: 0.8rem; font-weight: 500;
+      cursor: pointer; font-family: inherit;
+      transition: all 0.15s;
+    }
+    .profile-btn:hover { border-color: rgba(229,9,20,0.4); color: var(--text); }
+    .profile-btn.active {
+      background: var(--red); border-color: var(--red);
+      color: #fff; font-weight: 700;
+    }
+    .profile-btn .pb-avatar {
+      width: 20px; height: 20px; border-radius: 4px;
+      background: rgba(255,255,255,0.12);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 800; flex-shrink: 0;
+    }
+    .profile-btn.active .pb-avatar { background: rgba(0,0,0,0.2); }
 
     /* ── UPLOAD ── */
     #upload-section {
@@ -308,11 +341,16 @@
   <div class="logo">N</div>
   <h1>Meine Netflix Stats</h1>
   <div class="header-right">
-    <span id="profile-badge"></span>
     <span id="file-counter"></span>
     <button id="reset-btn" onclick="resetApp()">↩ Neue Datei</button>
   </div>
 </header>
+
+<!-- ══ PROFILE SWITCHER ════════════════════════════ -->
+<div id="profile-switcher">
+  <span class="ps-label">Profil</span>
+  <div id="profile-buttons"></div>
+</div>
 
 <!-- ══ UPLOAD ══════════════════════════════════════ -->
 <section id="upload-section">
@@ -617,6 +655,10 @@ const MONTHS   = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','
 const DAYS_DE  = ['So','Mo','Di','Mi','Do','Fr','Sa'];
 const DOW_FULL = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 const charts   = {};
+
+// Global state for multi-profile support
+let allRowsByProfile = {};  // { profileName: [rows] }
+let activeProfile    = null;
 
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
@@ -936,11 +978,7 @@ function renderKPIs(rows, stats, profile) {
   }
 
   // Header
-  if (profile) {
-    $('dash-title').textContent = `${profile}'s Netflix-Statistiken`;
-    $('profile-badge').textContent = profile;
-    $('profile-badge').style.display = 'inline';
-  }
+  $('dash-title').textContent = profile ? `${profile}'s Netflix-Statistiken` : 'Deine Netflix-Statistiken';
 
   const allDates = rows.filter(r => r.startTime).map(r => r.startTime).sort((a,b) => a-b);
   if (allDates.length) {
@@ -1305,6 +1343,71 @@ function renderThisYear(stats) {
 }
 
 // ════════════════════════════════════════════════
+//  PROFILE SWITCHER
+// ════════════════════════════════════════════════
+const PROFILE_COLORS = ['#E50914','#60a5fa','#c084fc','#4ade80','#fb923c','#f472b6','#38bdf8'];
+
+function buildProfileSwitcher(profiles) {
+  const container = $('profile-buttons');
+  container.innerHTML = '';
+
+  // "Alle" button if more than one profile
+  if (profiles.length > 1) {
+    const btn = document.createElement('button');
+    btn.className = 'profile-btn' + (activeProfile === null ? ' active' : '');
+    btn.dataset.profile = '';
+    btn.innerHTML = `<span class="pb-avatar">∑</span> Alle`;
+    btn.onclick = () => switchProfile(null);
+    container.appendChild(btn);
+  }
+
+  profiles.forEach((name, i) => {
+    const color  = PROFILE_COLORS[i % PROFILE_COLORS.length];
+    const initials = name.slice(0, 2).toUpperCase();
+    const btn = document.createElement('button');
+    btn.className = 'profile-btn' + (activeProfile === name ? ' active' : '');
+    btn.dataset.profile = name;
+    btn.style.setProperty('--pb-color', color);
+    btn.innerHTML = `<span class="pb-avatar" style="background:${color}22;color:${color}">${initials}</span> ${name}`;
+    btn.onclick = () => switchProfile(name);
+    if (activeProfile === name) {
+      btn.style.background = color;
+      btn.style.borderColor = color;
+    }
+    container.appendChild(btn);
+  });
+
+  $('profile-switcher').style.display = profiles.length > 0 ? 'flex' : 'none';
+}
+
+function switchProfile(profileName) {
+  activeProfile = profileName;
+
+  // Update button styles
+  document.querySelectorAll('.profile-btn').forEach((btn, i) => {
+    const name = btn.dataset.profile;
+    const isActive = (name === '' && profileName === null) || name === profileName;
+    btn.classList.toggle('active', isActive);
+    // Reset inline styles first
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    if (isActive && name !== '') {
+      const profiles = Object.keys(allRowsByProfile);
+      const idx = profiles.indexOf(name);
+      const color = PROFILE_COLORS[idx % PROFILE_COLORS.length];
+      btn.style.background = color;
+      btn.style.borderColor = color;
+    }
+  });
+
+  const rows = profileName === null
+    ? Object.values(allRowsByProfile).flat()
+    : (allRowsByProfile[profileName] || []);
+
+  renderDashboard(rows, profileName);
+}
+
+// ════════════════════════════════════════════════
 //  MAIN RENDER
 // ════════════════════════════════════════════════
 function renderDashboard(rows, profile) {
@@ -1341,48 +1444,56 @@ function loadCSV(file) {
     complete(res) {
       const fields = (res.meta.fields || []).map(f => f.trim());
 
-      // Detect columns (case-insensitive)
       const find = (...terms) => fields.find(f => terms.some(t => f.toLowerCase().includes(t.toLowerCase()))) || null;
 
-      const titleField     = find('Title');
-      const startField     = find('Start Time', 'StartTime', 'Date');
-      const durationField  = find('Duration');
-      const profileField   = find('Profile Name', 'Profile');
-      const deviceField    = find('Device Type', 'Device');
-      const suppField      = find('Supplemental Video Type');
+      const titleField    = find('Title');
+      const startField    = find('Start Time', 'StartTime', 'Date');
+      const durationField = find('Duration');
+      const profileField  = find('Profile Name', 'Profile');
+      const deviceField   = find('Device Type', 'Device');
+      const suppField     = find('Supplemental Video Type');
 
       if (!titleField || !startField) {
         alert('Spalten nicht erkannt.\nBitte die offizielle Netflix ViewingActivity.csv aus dem Daten-Export verwenden.\nErwartete Spalten: "Title", "Start Time"');
         return;
       }
 
-      // Detect profile (most common)
-      let profile = null;
-      if (profileField) {
-        const pCounts = {};
-        res.data.forEach(r => { const p = (r[profileField]||'').trim(); if (p) pCounts[p] = (pCounts[p]||0)+1; });
-        profile = Object.entries(pCounts).sort((a,b) => b[1]-a[1])[0]?.[0] || null;
-      }
-
-      const rows = res.data
+      const now = new Date();
+      const parsed = res.data
         .filter(r => r[titleField] && r[startField])
         .map(r => {
-          const raw         = (r[titleField] || '').trim();
-          const startTime   = parseStartTime(r[startField]);
-          const duration    = durationField ? parseDuration(r[durationField]) : 0;
-          const device      = deviceField ? (r[deviceField] || '').trim() : '';
+          const raw          = (r[titleField] || '').trim();
+          const startTime    = parseStartTime(r[startField]);
+          const duration     = durationField ? parseDuration(r[durationField]) : 0;
+          const device       = deviceField ? (r[deviceField] || '').trim() : '';
           const supplemental = suppField ? (r[suppField] || '').trim() : '';
-          const parsed = parseTitle(raw);
-          return { raw, startTime, duration, device, supplemental, ...parsed };
+          const profile      = profileField ? (r[profileField] || '').trim() : 'Standard';
+          const titleParsed  = parseTitle(raw);
+          return { raw, startTime, duration, device, supplemental, profile, ...titleParsed };
         })
-        .filter(r => r.startTime && !isNaN(r.startTime) && r.startTime <= new Date());
+        .filter(r => r.startTime && !isNaN(r.startTime) && r.startTime <= now);
 
-      if (!rows.length) {
+      if (!parsed.length) {
         alert('Keine gültigen Daten gefunden.\nBitte überprüfe das Dateiformat.');
         return;
       }
 
-      renderDashboard(rows, profile);
+      // Group by profile
+      allRowsByProfile = {};
+      parsed.forEach(r => {
+        if (!allRowsByProfile[r.profile]) allRowsByProfile[r.profile] = [];
+        allRowsByProfile[r.profile].push(r);
+      });
+
+      const profiles = Object.keys(allRowsByProfile).sort();
+
+      // Default: first profile if only one, else null = "Alle"
+      activeProfile = profiles.length === 1 ? profiles[0] : null;
+
+      buildProfileSwitcher(profiles);
+
+      const initialRows = activeProfile === null ? parsed : allRowsByProfile[activeProfile];
+      renderDashboard(initialRows, activeProfile);
     },
     error: err => alert('Fehler beim Lesen der Datei: ' + err.message)
   });
@@ -1404,7 +1515,10 @@ function resetApp() {
   $('upload-section').style.display = 'flex';
   $('reset-btn').style.display = 'none';
   $('file-counter').style.display = 'none';
-  $('profile-badge').style.display = 'none';
+  $('profile-switcher').style.display = 'none';
+  $('profile-buttons').innerHTML = '';
+  allRowsByProfile = {};
+  activeProfile = null;
   $('file-input').value = '';
 }
 </script>
